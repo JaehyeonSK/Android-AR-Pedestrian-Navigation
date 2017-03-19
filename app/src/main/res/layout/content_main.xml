@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/content_main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:layout_behavior="@string/appbar_scrolling_view_behavior"
+    tools:context="me.blog.cjh7163.tmaptest.MainActivity"
+    tools:showIn="@layout/app_bar_main">
+
+    <FrameLayout
+        android:id="@+id/frameMap"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clickable="false"
+        />
+    <Button android:id="@+id/btnPath" android:text="길찾기" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_alignParentStart="true" android:padding="-3dp" android:layout_margin="5dp"/>
+
+    <android.support.design.widget.FloatingActionButton
+        android:id="@+id/btnFlag"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentBottom="true"
+        android:layout_margin="16dp"
+        app:srcCompat="@drawable/ic_button_flag"
+        />
+
+    <android.support.design.widget.FloatingActionButton
+        android:id="@+id/btnCurrent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@+id/btnFlag"
+        android:layout_above="@+id/btnFlag"
+        app:srcCompat="@drawable/ic_button_my_location"
+        />
+
+</RelativeLayout>

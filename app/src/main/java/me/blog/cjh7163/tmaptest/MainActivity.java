@@ -1,13 +1,22 @@
 package me.blog.cjh7163.tmaptest;
 
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.location.Location;
 import android.location.LocationListener;
+import android.net.Uri;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.support.design.widget.FloatingActionButton;
+import android.support.design.widget.NavigationView;
+import android.support.v4.view.GravityCompat;
+import android.support.v4.widget.DrawerLayout;
+import android.support.v7.app.ActionBarDrawerToggle;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
 import android.util.Log;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.FrameLayout;
@@ -22,7 +31,9 @@ import com.skp.Tmap.TMapView;
 
 import java.util.ArrayList;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity
+        implements NavigationView.OnNavigationItemSelectedListener {
+    private static final int REQUEST_SEARCH = 0x0001;
 
     private boolean selectionMode = false;
     private boolean navigationMode = false;
@@ -34,6 +45,10 @@ public class MainActivity extends AppCompatActivity {
     private Button btnPath;
     private FloatingActionButton btnCurrent;
     private FloatingActionButton btnFlag;
+
+    private Toolbar toolbar;
+    private NavigationView navigationView;
+    private DrawerLayout drawerLayout;
 
     // Manager Components
     private GpsManager gpsManager;
@@ -72,7 +87,7 @@ public class MainActivity extends AppCompatActivity {
         mapView.setZoomLevel(16);
 //        mapView.setMapType(TMapView.MAPTYPE_STANDARD);
 //        mapView.setCompassMode(true);
-        mapView.setTrackingMode(true);
+//        mapView.setTrackingMode(true);
 
         frameMap.addView(mapView);
 
@@ -84,12 +99,29 @@ public class MainActivity extends AppCompatActivity {
 
         btnFlag = (FloatingActionButton)findViewById(R.id.btnFlag);
         btnFlag.setOnClickListener(btnFlagClicked);
+
+        //Drawer Layout
+        drawerLayout = (DrawerLayout)findViewById(R.id.activity_main);
+        toolbar = (Toolbar)findViewById(R.id.toolbar);
+
+        ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
+                this,
+                drawerLayout,
+                toolbar,
+                R.string.navigation_drawer_open,
+                R.string.navigation_drawer_close
+        );
+        toggle.syncState();
+
+        navigationView = (NavigationView)findViewById(R.id.nav_view);
+        navigationView.setNavigationItemSelectedListener(this);
     }
 
     private void moveToCurrentLocation() {
         try {
             Location currentLocation = gpsManager.getCurrentLocation();
             mapView.setLocationPoint(currentLocation.getLongitude(), currentLocation.getLatitude());
+            mapView.setCenterPoint(currentLocation.getLongitude(), currentLocation.getLatitude());
         } catch (Exception ex) {
             Toast.makeText(this, "현재 위치를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show();
         }
@@ -167,7 +199,7 @@ public class MainActivity extends AppCompatActivity {
         this.selectionMode = isSelctionMode;
 
         if (isSelctionMode) {
-            Toast.makeText(this, "도착지를 선택하세요.", Toast.LENGTH_SHORT).show();
+            toolbar.setTitle("도착지를 설정하세요.");
 
             mapView.setOnLongClickListenerCallback(new TMapView.OnLongClickListenerCallback() {
                 @Override
@@ -178,19 +210,8 @@ public class MainActivity extends AppCompatActivity {
                     .setPositiveButton("예", new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialogInterface, int i) {
-                            try {
-                                mapView.removeMarkerItem("도착지");
-                            } catch(Exception ex) {
-                            }
-
-                            destination = tMapPoint;
-
-                            // add destination marker on TMap View
-                            TMapMarkerItem marker = new TMapMarkerItem();
-                            marker.setID("도착지");
-                            marker.setTMapPoint(tMapPoint);
-
-                            mapView.addMarkerItem("도착지", marker);
+                            // set selected point as destination and mark it on TMap View
+                            setDestination(tMapPoint);
 
                             // turn off selection mode
                             setSelectionMode(false);
@@ -200,8 +221,81 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
         } else {
-            Toast.makeText(this, "도착지 선택 해제", Toast.LENGTH_SHORT).show();
+            toolbar.setTitle("");
             mapView.setOnLongClickListenerCallback(null);
+        }
+    }
+
+    private void setDestination(TMapPoint destination) {
+        // clear previous destination
+        try {
+            mapView.removeMarkerItem("도착지");
+        } catch(Exception ex) {
+        }
+
+        this.destination = destination;
+
+        // add destination marker on TMap View
+        TMapMarkerItem marker = new TMapMarkerItem();
+        marker.setID("도착지");
+        marker.setTMapPoint(destination);
+
+        mapView.addMarkerItem("도착지", marker);
+    }
+
+    @Override
+    public boolean onNavigationItemSelected(@NonNull MenuItem item) {
+        int id = item.getItemId();
+        try {
+            switch (id) {
+                case R.id.nav_map:
+                    break;
+                case R.id.nav_search: {
+                    Intent intent = new Intent(MainActivity.this, SearchActivity.class);
+                    startActivityForResult(intent, REQUEST_SEARCH);
+                    break;
+                }
+                case R.id.nav_history:
+                    break;
+                case R.id.nav_help:
+                    break;
+                case R.id.nav_send: {
+                    Uri uri = Uri.parse("mailto:cjh7163@gmail.com");
+                    Intent intent = new Intent(Intent.ACTION_SENDTO, uri);
+                    startActivity(intent);
+                    break;
+                }
+            }
+        } catch (Exception ex) {
+            Log.d("Exception:", ex.getMessage());
+        }
+
+        drawerLayout.closeDrawer(GravityCompat.START);
+        return true;
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (resultCode == RESULT_OK) {
+            switch (requestCode) {
+                case REQUEST_SEARCH: {
+                    String name = data.getStringExtra("POI");
+                    double longitude = data.getDoubleExtra("LON", 0.0);
+                    double latitude = data.getDoubleExtra("LAT", 0.0);
+
+                    TMapPoint mapPoint = new TMapPoint(latitude, longitude);
+                    setDestination(mapPoint);
+                    mapView.setCenterPoint(longitude, latitude);
+
+                    break;
+                }
+                default: {
+                    super.onActivityResult(requestCode, resultCode, data);
+                    break;
+                }
+            }
+        } else {
+            super.onActivityResult(requestCode, resultCode, data);
         }
     }
 
