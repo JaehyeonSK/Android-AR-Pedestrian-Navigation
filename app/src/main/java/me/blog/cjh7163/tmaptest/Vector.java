@@ -19,8 +19,18 @@ public class Vector {
 
         try {
             // 각도 구하기
+            double p, q;
+            p = end.getLongitude() - start.getLongitude();
+            q = end.getLatitude() - start.getLatitude();
 
-            direction = 0.0;
+            Log.d("end.long:", ""+end.getLongitude());
+            Log.d("end.lat:", ""+end.getLatitude());
+            Log.d("start.long:", ""+start.getLongitude());
+            Log.d("start.lat:", ""+start.getLatitude());
+            Log.d("p:", ""+p);
+            Log.d("q:", ""+q);
+
+            direction = Math.toDegrees(Math.atan(Math.sin(p/q)));
             distance = 0.0;
         } catch (Exception ex) {
             Log.d("Exception: ", "can't calculate vector.");

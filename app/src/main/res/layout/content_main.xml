@@ -36,4 +36,15 @@
         app:srcCompat="@drawable/ic_button_my_location"
         />
 
+    <android.support.design.widget.FloatingActionButton
+        android:id="@+id/direction"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentRight="true"
+        android:maxWidth="24dp"
+        android:maxHeight="24dp"
+        android:layout_margin="16dp"
+        app:srcCompat="@drawable/dir_right"
+        />
 </RelativeLayout>

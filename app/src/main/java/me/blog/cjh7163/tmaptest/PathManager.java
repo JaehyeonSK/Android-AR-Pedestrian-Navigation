@@ -57,12 +57,13 @@ public class PathManager {
         Vector vector = null;
 
         try {
+            updateNearest();
             TMapPoint destinationPoint = polyLine.getLinePoint().get(nearest);
 
             Location currentLocation = GpsManager.getInstance().getCurrentLocation();
             Location destination = new Location(LocationManager.GPS_PROVIDER);
             destination.setLongitude(destinationPoint.getLongitude());
-            destination.setLatitude(destination.getLatitude());
+            destination.setLatitude(destinationPoint.getLatitude());
 
             vector = new Vector(currentLocation, destination);
         } catch (Exception ex) {

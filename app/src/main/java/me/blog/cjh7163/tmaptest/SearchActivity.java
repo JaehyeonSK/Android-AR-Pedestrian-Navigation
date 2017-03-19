@@ -5,11 +5,9 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
-import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
@@ -26,7 +24,7 @@ public class SearchActivity extends AppCompatActivity {
     Button btnSearch;
     ListView lvSearch;
 
-    ArrayAdapter<String> arrayAdapter;
+    SearchListAdapter adapter;
     ArrayList<POI> arrayPOI;
 
     public class POI {
@@ -47,9 +45,9 @@ public class SearchActivity extends AppCompatActivity {
         btnSearch = (Button)findViewById(R.id.btnSearch);
         lvSearch = (ListView)findViewById(R.id.lvSearch);
 
-        arrayAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1);
+        adapter = new SearchListAdapter();
         arrayPOI = new ArrayList<>();
-        lvSearch.setAdapter(arrayAdapter);
+        lvSearch.setAdapter(adapter);
 
         lvSearch.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
@@ -92,16 +90,14 @@ public class SearchActivity extends AppCompatActivity {
                             runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
-                                    arrayAdapter.clear();
+                                    adapter.clear();
                                     arrayPOI.clear();
 
                                     for(int i=0; i<arrayList.size(); i++) {
                                         TMapPOIItem poiItem = arrayList.get(i);
 
-                                        arrayAdapter.add(poiItem.getPOIName());
-
-                                        String secondLine = TextUtils.join("/", new String[] {poiItem.upperBizName, poiItem.middleBizName, poiItem.lowerBizName, poiItem.detailBizName});
-
+                                        String secondLine = StringUtils.join('/', new String[] {poiItem.upperBizName, poiItem.middleBizName, poiItem.lowerBizName, poiItem.detailBizName});
+                                        adapter.addItem(poiItem.getPOIName(), secondLine);
 
                                         POI poi = new POI();
                                         poi.name = poiItem.getPOIName();
@@ -111,7 +107,7 @@ public class SearchActivity extends AppCompatActivity {
                                         arrayPOI.add(poi);
                                     }
 
-                                    arrayAdapter.notifyDataSetChanged();
+                                    adapter.notifyDataSetChanged();
                                 }
                             });
                         }

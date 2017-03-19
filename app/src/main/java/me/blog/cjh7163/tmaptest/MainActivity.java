@@ -73,6 +73,14 @@ public class MainActivity extends AppCompatActivity
 
             // move to current location
             moveToCurrentLocation();
+
+            FloatingActionButton fab = (FloatingActionButton)findViewById(R.id.direction);
+            fab.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    updateDirection();
+                }
+            });
         } catch (Exception ex) {
             Log.d("Exception:", "can't initialize. " + ex.getMessage());
         }
@@ -128,10 +136,15 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void updateDirection() {
-        Vector nearestVector = pathManager.getNearestVector();
-        double direction = nearestVector.getDirection();
-        double distance = nearestVector.getDistance();
+        try {
+            Vector nearestVector = pathManager.getNearestVector();
+            double direction = nearestVector.getDirection();
+            double distance = nearestVector.getDistance();
 
+            Log.d("Degree:", "" + nearestVector.getDirection());
+        } catch(Exception ex) {
+            Log.d("Exception:", ex.getMessage());
+        }
     }
 
     private void setNavigationMode(boolean isNavigationMode) {
@@ -279,6 +292,8 @@ public class MainActivity extends AppCompatActivity
         if (resultCode == RESULT_OK) {
             switch (requestCode) {
                 case REQUEST_SEARCH: {
+                    setNavigationMode(false);
+
                     String name = data.getStringExtra("POI");
                     double longitude = data.getDoubleExtra("LON", 0.0);
                     double latitude = data.getDoubleExtra("LAT", 0.0);
