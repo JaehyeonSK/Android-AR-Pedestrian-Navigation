@@ -18,6 +18,7 @@ public class PathManager {
     private PathManager() {}
 
     private TMapPolyLine polyLine;
+    private ArrayList<TMapPoint> points;
     private int nearest;
 
     public TMapPolyLine getPolyLine() {
@@ -26,6 +27,7 @@ public class PathManager {
 
     public void setPolyLine(TMapPolyLine polyLine) {
         this.polyLine = polyLine;
+        this.points = polyLine.getLinePoint();
         updateNearest();
     }
 
@@ -35,8 +37,6 @@ public class PathManager {
 
         try {
             Location currentLocation = GpsManager.getInstance().getCurrentLocation();
-
-            ArrayList<TMapPoint> points = polyLine.getLinePoint();
 
             for (int i=0; i<points.size(); i++) {
                 TMapPoint point = points.get(i);
@@ -58,18 +58,24 @@ public class PathManager {
 
         try {
             updateNearest();
-            TMapPoint destinationPoint = polyLine.getLinePoint().get(nearest);
+            TMapPoint destinationPoint = points.get(nearest);
 
-            Location currentLocation = GpsManager.getInstance().getCurrentLocation();
+            Location currentLocation = GpsManager.getInstance().getLastLocation();
             Location destination = new Location(LocationManager.GPS_PROVIDER);
             destination.setLongitude(destinationPoint.getLongitude());
             destination.setLatitude(destinationPoint.getLatitude());
 
             vector = new Vector(currentLocation, destination);
         } catch (Exception ex) {
+            Log.d("Error", "can't get nearest vector.");
         }
 
         return vector;
+    }
+
+    public boolean hasNext() {
+        points.remove(0);
+        return (points.size() > 0) ? true : false;
     }
 
     public static PathManager getInstance() {

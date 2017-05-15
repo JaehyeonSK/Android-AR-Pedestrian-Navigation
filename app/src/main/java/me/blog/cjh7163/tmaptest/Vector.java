@@ -19,19 +19,31 @@ public class Vector {
 
         try {
             // 각도 구하기
-            double p, q;
-            p = end.getLongitude() - start.getLongitude();
-            q = end.getLatitude() - start.getLatitude();
+//            double p, q;
+//            p = end.getLongitude() - start.getLongitude(); // 경도 차
+//            q = end.getLatitude() - start.getLatitude(); // 위도 차
+//
+//            Log.d("end.long:", ""+end.getLongitude());
+//            Log.d("end.lat:", ""+end.getLatitude());
+//            Log.d("start.long:", ""+start.getLongitude());
+//            Log.d("start.lat:", ""+start.getLatitude());
+//            Log.d("p:", ""+p);
+//            Log.d("q:", ""+q);
+//
+//            direction = Math.toDegrees(Math.atan(Math.sin(p/q)));
 
-            Log.d("end.long:", ""+end.getLongitude());
-            Log.d("end.lat:", ""+end.getLatitude());
-            Log.d("start.long:", ""+start.getLongitude());
-            Log.d("start.lat:", ""+start.getLatitude());
-            Log.d("p:", ""+p);
-            Log.d("q:", ""+q);
+            float[] results = new float[3];
+            Location.distanceBetween(
+                    start.getLatitude(), start.getLongitude(),
+                    end.getLatitude(), end.getLongitude(), results
+            );
+            distance = results[0];
+            direction = DirectionManager.getInstance().getDirectionBetween(start, end);
 
-            direction = Math.toDegrees(Math.atan(Math.sin(p/q)));
-            distance = 0.0;
+            Log.d("== Vector Result ==", "");
+            Log.d("results(distance)::", String.valueOf(distance));
+            Log.d("results(direction)::", String.valueOf(direction));
+            Log.d("===================", "");
         } catch (Exception ex) {
             Log.d("Exception: ", "can't calculate vector.");
         }

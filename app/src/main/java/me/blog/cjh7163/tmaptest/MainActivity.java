@@ -2,6 +2,9 @@ package me.blog.cjh7163.tmaptest;
 
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.graphics.drawable.Drawable;
+import android.hardware.Sensor;
+import android.hardware.SensorManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.net.Uri;
@@ -14,11 +17,13 @@ import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.SwitchCompat;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.CompoundButton;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
@@ -30,6 +35,8 @@ import com.skp.Tmap.TMapPolyLine;
 import com.skp.Tmap.TMapView;
 
 import java.util.ArrayList;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
@@ -37,7 +44,10 @@ public class MainActivity extends AppCompatActivity
 
     private boolean selectionMode = false;
     private boolean navigationMode = false;
+    private boolean arMode = false;
     private TMapPoint destination = null;
+
+    private Drawable navIcon = null;
 
     // Views
     private FrameLayout frameMap;
@@ -45,6 +55,7 @@ public class MainActivity extends AppCompatActivity
     private Button btnPath;
     private FloatingActionButton btnCurrent;
     private FloatingActionButton btnFlag;
+    private FloatingActionButton btnDir;
 
     private Toolbar toolbar;
     private NavigationView navigationView;
@@ -53,6 +64,18 @@ public class MainActivity extends AppCompatActivity
     // Manager Components
     private GpsManager gpsManager;
     private PathManager pathManager;
+    private DirectionManager directionManager;
+
+    private SensorManager sensorManager;
+    private Sensor accSensor, magSensor;
+
+    // Update Timer
+    private Timer timer;
+    private TimerTask timerTask;
+
+    private FrameLayout arSurface;
+    private FloatingActionButton btnAR;
+    private SwitchCompat swAR;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,18 +94,53 @@ public class MainActivity extends AppCompatActivity
             // init Path Manager
             pathManager = PathManager.getInstance();
 
+            // init Direction Manager
+            directionManager = DirectionManager.getInstance();
+
+            // init Sensor Manager
+            sensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
+            accSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+            magSensor = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+
+            sensorManager.registerListener(directionManager.sensorEventListener, accSensor, SensorManager.SENSOR_DELAY_UI);
+            sensorManager.registerListener(directionManager.sensorEventListener, magSensor, SensorManager.SENSOR_DELAY_UI);
+
+            navIcon = toolbar.getNavigationIcon();
+
             // move to current location
             moveToCurrentLocation();
-
-            FloatingActionButton fab = (FloatingActionButton)findViewById(R.id.direction);
-            fab.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    updateDirection();
-                }
-            });
         } catch (Exception ex) {
             Log.d("Exception:", "can't initialize. " + ex.getMessage());
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        try {
+            sensorManager.registerListener(directionManager.sensorEventListener, accSensor, SensorManager.SENSOR_DELAY_UI);
+            sensorManager.registerListener(directionManager.sensorEventListener, magSensor, SensorManager.SENSOR_DELAY_UI);
+        } catch(Exception ex) {
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+
+        try {
+            sensorManager.unregisterListener(directionManager.sensorEventListener);
+        } catch(Exception ex) {
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        try {
+            timer.cancel();
+        } catch(Exception ex) {
         }
     }
 
@@ -94,8 +152,9 @@ public class MainActivity extends AppCompatActivity
         mapView.setIconVisibility(true);
         mapView.setZoomLevel(16);
 //        mapView.setMapType(TMapView.MAPTYPE_STANDARD);
-//        mapView.setCompassMode(true);
+        mapView.setCompassMode(true);
 //        mapView.setTrackingMode(true);
+
 
         frameMap.addView(mapView);
 
@@ -123,6 +182,40 @@ public class MainActivity extends AppCompatActivity
 
         navigationView = (NavigationView)findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(this);
+
+        arSurface = (FrameLayout)findViewById(R.id.arSurface);
+        //btnAR = (FloatingActionButton)findViewById(R.id.btnAR);
+        //btnAR.setOnClickListener(btnARClicked);
+        swAR = (SwitchCompat)findViewById(R.id.swAR);
+        swAR.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                arMode = checked;
+                if (arMode) {
+                    toolbar.setNavigationIcon(null);
+                    arSurface.setVisibility(View.VISIBLE);
+                } else {
+                    toolbar.setNavigationIcon(navIcon);
+                    arSurface.setVisibility(View.INVISIBLE);
+                }
+            }
+        });
+
+        btnDir = (FloatingActionButton)findViewById(R.id.direction);
+//        btnDir.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View view) {
+//                try {
+//                    Location location = gpsManager.getCurrentLocation();
+//                    mapView.setLocationPoint(location.getLongitude(), location.getLatitude());
+//                    if (navigationMode) {
+//                        updateDirection();
+//                    }
+//                } catch (Exception ex) {
+//                }
+//            }
+//        });
+
     }
 
     private void moveToCurrentLocation() {
@@ -136,12 +229,36 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void updateDirection() {
+        float distThreshold = 3.0f;
+        Vector nearestVector = null;
+
         try {
-            Vector nearestVector = pathManager.getNearestVector();
-            double direction = nearestVector.getDirection();
+            if (nearestVector == null) {
+                nearestVector = pathManager.getNearestVector();
+            }
+
             double distance = nearestVector.getDistance();
+            if(distance < distThreshold) {
+                // in 3.0 meter
+                if(pathManager.hasNext()) {
+                    // Path has next point
+                    nearestVector = pathManager.getNearestVector();
+                } else {
+                    // Navigation Complete !!!
+                    nearestVector = null;
+                    Toast.makeText(this, "목적지에 도착하였습니다.", Toast.LENGTH_SHORT).show();
+                    setNavigationMode(false);
+                }
+            } else {
+                // out of 3.0 meters
+            }
+
+            double direction = nearestVector.getDirection();
+
+            btnDir.setRotation((float)direction);
 
             Log.d("Degree:", "" + nearestVector.getDirection());
+            Log.d("Distance:", "" + nearestVector.getDistance());
         } catch(Exception ex) {
             Log.d("Exception:", ex.getMessage());
         }
@@ -150,6 +267,7 @@ public class MainActivity extends AppCompatActivity
     private void setNavigationMode(boolean isNavigationMode) {
         this.navigationMode = isNavigationMode;
 
+        btnDir.setRotation(0);
         if (isNavigationMode) {
             try {
                 if (destination == null) {
@@ -183,12 +301,26 @@ public class MainActivity extends AppCompatActivity
                 // disable User Scroll & Zoom
                 mapView.setUserScrollZoomEnable(true);
 
+                // enable compass mode
+                mapView.setCompassMode(true);
+
                 btnPath.setText("길찾기 종료");
+                swAR.setVisibility(View.VISIBLE);
+                //btnAR.setVisibility(View.VISIBLE); // set AR button visible
 
                 Toast.makeText(this, "길 안내를 시작합니다.", Toast.LENGTH_SHORT).show();
 
                 moveToCurrentLocation();
-                // nav service on
+
+                // nav service timer start
+                timer = new Timer(true);
+                timerTask = new TimerTask() {
+                    @Override
+                    public void run() {
+                        updateDirection();
+                    }
+                };
+                timer.schedule(timerTask, 200, 1);
 
             } catch (Exception ex) {
                 Log.d("Exception:", ex.getMessage());
@@ -201,17 +333,26 @@ public class MainActivity extends AppCompatActivity
 
             // enable User Scroll & Zoom
             mapView.setUserScrollZoomEnable(false);
+            mapView.setCompassMode(true);
             // clear map path
             mapView.removeTMapPath();
 
+            // nav service timer stop
+            try {
+                timer.cancel();
+            } catch (Exception ex) {
+            }
+
             btnPath.setText("길찾기");
+            swAR.setVisibility(View.INVISIBLE);
+//            btnAR.setVisibility(View.INVISIBLE);
         }
     }
 
-    private void setSelectionMode(boolean isSelctionMode) {
-        this.selectionMode = isSelctionMode;
+    private void setSelectionMode(boolean isSelectionMode) {
+        this.selectionMode = isSelectionMode;
 
-        if (isSelctionMode) {
+        if (isSelectionMode) {
             toolbar.setTitle("도착지를 설정하세요.");
 
             mapView.setOnLongClickListenerCallback(new TMapView.OnLongClickListenerCallback() {
@@ -254,6 +395,7 @@ public class MainActivity extends AppCompatActivity
         marker.setTMapPoint(destination);
 
         mapView.addMarkerItem("도착지", marker);
+        Log.d("Info::", "도착지 설정 완료");
     }
 
     @Override
@@ -318,7 +460,7 @@ public class MainActivity extends AppCompatActivity
         @Override
         public void onLocationChanged(Location location) {
             try {
-
+                Log.d("loc changed", "location changed!");
                 mapView.setLocationPoint(location.getLongitude(), location.getLatitude());
                 if (navigationMode) {
                     updateDirection();
@@ -364,4 +506,5 @@ public class MainActivity extends AppCompatActivity
             moveToCurrentLocation();
         }
     };
+
 }

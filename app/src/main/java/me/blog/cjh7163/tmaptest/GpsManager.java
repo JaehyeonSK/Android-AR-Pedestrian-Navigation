@@ -4,12 +4,16 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.location.GpsSatellite;
+import android.location.GpsStatus;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.util.Log;
+
+import java.util.Iterator;
 
 /**
  * Created by cjh71 on 2017-03-15.
@@ -24,8 +28,31 @@ public class GpsManager {
     private LocationManager locManager;
     private Activity appContext;
 
+    private Location lastLocation;
+
     private GpsManager() {}
 
+    private int getGpsSatelliteCount() {
+        if (ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(appContext, new String[] {Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_LOCATION);
+        }
+
+        LocationManager lm = (LocationManager)appContext.getSystemService(Context.LOCATION_SERVICE);
+        final GpsStatus gs =  lm.getGpsStatus(null);
+
+        int i = 0, j = 0;
+        final Iterator<GpsSatellite> iter = gs.getSatellites().iterator();
+
+        while(iter.hasNext()) {
+            GpsSatellite satellite = iter.next();
+
+            if (satellite.usedInFix()) {
+                j++;
+            }
+            i++;
+        }
+        return j;
+    }
 
     public static GpsManager getInstance() throws Exception {
         if (!init) {
@@ -53,7 +80,7 @@ public class GpsManager {
         if (ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(appContext, new String[] {Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_LOCATION);
         }
-        locManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 1, locationListener);
+        locManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 3, locationListener);
     }
 
     public Location getCurrentLocation() {
@@ -61,8 +88,24 @@ public class GpsManager {
             ActivityCompat.requestPermissions(appContext, new String[] {Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_LOCATION);
         }
 
-        Location location = locManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+        Location location;
+        int satelliteCount = getGpsSatelliteCount();
+
+        if(satelliteCount < 4) {
+            location = locManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+        } else {
+            location = locManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+        }
+
         Log.d("current: ", location.getLongitude() + ", " + location.getLatitude());
+        this.lastLocation = location;
         return location;
+    }
+
+    public Location getLastLocation() {
+        if(lastLocation == null) {
+            lastLocation = getCurrentLocation();
+        }
+        return lastLocation;
     }
 }
