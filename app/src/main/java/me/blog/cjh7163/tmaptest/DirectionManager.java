@@ -22,6 +22,8 @@ public class DirectionManager {
 
     private float[] accData = null;
     private float[] magData = null;
+    private float pitch = 0.0f;
+    private float roll = 0.0f;
     private float[] rotation = new float[9];
     private float[] resultData = new float[3];
 
@@ -29,13 +31,23 @@ public class DirectionManager {
         return instance;
     }
 
+
     public SensorEventListener sensorEventListener = new SensorEventListener() {
         @Override
+        @SuppressWarnings("deprecation")
         public void onSensorChanged(SensorEvent event) {
-            if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-                instance.accData = event.values.clone();
-            } else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
-                instance.magData = event.values.clone();
+            float[] values = event.values.clone();
+            switch(event.sensor.getType()) {
+                case Sensor.TYPE_ACCELEROMETER:
+                    instance.accData = values;
+                    break;
+                case Sensor.TYPE_MAGNETIC_FIELD:
+                    instance.magData = values;
+                    break;
+                case Sensor.TYPE_ORIENTATION:
+                    instance.pitch = values[1];
+                    instance.roll = values[2];
+                    break;
             }
         }
         @Override
@@ -56,6 +68,14 @@ public class DirectionManager {
             Log.d("Info::", "accData and magData must not be null!");
         }
         return 0;
+    }
+
+    public float getPitch() {
+        return pitch;
+    }
+
+    public float getRoll() {
+        return roll;
     }
 
     public float getDirectionBetween(Location src, Location dest) {

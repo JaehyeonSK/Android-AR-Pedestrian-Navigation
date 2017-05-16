@@ -2,12 +2,14 @@ package me.blog.cjh7163.tmaptest;
 
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.graphics.PixelFormat;
 import android.graphics.drawable.Drawable;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.net.Uri;
+import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.design.widget.FloatingActionButton;
@@ -38,6 +40,8 @@ import java.util.ArrayList;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import me.blog.cjh7163.tmaptest.Augmented.GLClearRenderer;
+
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
     private static final int REQUEST_SEARCH = 0x0001;
@@ -61,13 +65,17 @@ public class MainActivity extends AppCompatActivity
     private NavigationView navigationView;
     private DrawerLayout drawerLayout;
 
+    // OpenGL
+    private GLSurfaceView glSurfaceView;
+    private GLClearRenderer renderer;
+
     // Manager Components
     private GpsManager gpsManager;
     private PathManager pathManager;
     private DirectionManager directionManager;
 
     private SensorManager sensorManager;
-    private Sensor accSensor, magSensor;
+    private Sensor accSensor, magSensor, oriSensor;
 
     // Update Timer
     private Timer timer;
@@ -78,6 +86,7 @@ public class MainActivity extends AppCompatActivity
     private SwitchCompat swAR;
 
     @Override
+    @SuppressWarnings("deprecation")
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
@@ -101,9 +110,11 @@ public class MainActivity extends AppCompatActivity
             sensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
             accSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
             magSensor = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+            oriSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
 
             sensorManager.registerListener(directionManager.sensorEventListener, accSensor, SensorManager.SENSOR_DELAY_UI);
             sensorManager.registerListener(directionManager.sensorEventListener, magSensor, SensorManager.SENSOR_DELAY_UI);
+            sensorManager.registerListener(directionManager.sensorEventListener, oriSensor, SensorManager.SENSOR_DELAY_UI);
 
             navIcon = toolbar.getNavigationIcon();
 
@@ -121,6 +132,7 @@ public class MainActivity extends AppCompatActivity
         try {
             sensorManager.registerListener(directionManager.sensorEventListener, accSensor, SensorManager.SENSOR_DELAY_UI);
             sensorManager.registerListener(directionManager.sensorEventListener, magSensor, SensorManager.SENSOR_DELAY_UI);
+            sensorManager.registerListener(directionManager.sensorEventListener, oriSensor, SensorManager.SENSOR_DELAY_UI);
         } catch(Exception ex) {
         }
     }
@@ -194,27 +206,58 @@ public class MainActivity extends AppCompatActivity
                 if (arMode) {
                     toolbar.setNavigationIcon(null);
                     arSurface.setVisibility(View.VISIBLE);
+                    btnDir.setVisibility(View.GONE);
+                    //TODO: 3D Direction Mark VISIBLE
+                    startAR();
                 } else {
                     toolbar.setNavigationIcon(navIcon);
                     arSurface.setVisibility(View.INVISIBLE);
+                    btnDir.setVisibility(View.VISIBLE);
+                    //TODO: 3D Direction Mark INVISIBLE
+                    stopAR();
                 }
             }
         });
 
         btnDir = (FloatingActionButton)findViewById(R.id.direction);
-//        btnDir.setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View view) {
-//                try {
-//                    Location location = gpsManager.getCurrentLocation();
-//                    mapView.setLocationPoint(location.getLongitude(), location.getLatitude());
-//                    if (navigationMode) {
-//                        updateDirection();
-//                    }
-//                } catch (Exception ex) {
-//                }
-//            }
-//        });
+
+    }
+
+    private void startAR() {
+        try {
+            FrameLayout content = (FrameLayout) findViewById(R.id.arSurface);
+
+            // TODO: OpenGL Initialize
+            renderer = new GLClearRenderer();
+
+            glSurfaceView = new GLSurfaceView(this);
+            glSurfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 0);
+            // set format as translucent
+            glSurfaceView.getHolder().setFormat(PixelFormat.TRANSLUCENT);
+            glSurfaceView.setRenderer(renderer);
+
+            toolbar.setTitle("증강현실 모드");
+            content.addView(glSurfaceView);
+
+            glSurfaceView.setZOrderMediaOverlay(true);
+        } catch(Exception ex) {
+            Log.d("Exception::", ex.getMessage());
+        }
+    }
+
+    private void stopAR() {
+        try {
+            FrameLayout content = (FrameLayout) findViewById(R.id.arSurface);
+            glSurfaceView.setZOrderMediaOverlay(false);
+
+            toolbar.setTitle(null);
+            content.removeView(glSurfaceView);
+        } catch(Exception ex) {
+            Log.d("Exception::", ex.getMessage());
+        } finally {
+            renderer = null;
+            glSurfaceView = null;
+        }
 
     }
 
@@ -256,6 +299,16 @@ public class MainActivity extends AppCompatActivity
             double direction = nearestVector.getDirection();
 
             btnDir.setRotation((float)direction);
+            if (renderer != null) {
+                // angle z is reversed
+                renderer.setAngleZ((float)-direction);
+
+                // angle x range in [-90.0, 90.0]
+                renderer.setAngleX(Math.min(Math.max(directionManager.getPitch(), -90.0f), +90.0f));
+
+                // angle y
+                renderer.setAngleY(directionManager.getRoll());
+            }
 
             Log.d("Degree:", "" + nearestVector.getDirection());
             Log.d("Distance:", "" + nearestVector.getDistance());
@@ -287,6 +340,20 @@ public class MainActivity extends AppCompatActivity
                     public void onFindPathData(TMapPolyLine tMapPolyLine) {
                         // add Path from current to destination on TMap View
                         mapView.addTMapPath(tMapPolyLine);
+
+                        // TODO: Line Point
+                        ArrayList<TMapPoint> linePoints = tMapPolyLine.getLinePoint();
+                        Log.d("LP::", linePoints.size() + "개");
+
+                        int i;
+
+                        i = 0;
+                        for (TMapPoint p : linePoints) {
+                            TMapMarkerItem markerItem = new TMapMarkerItem();
+                            markerItem.setTMapPoint(p);
+                            Log.d("LonLat::", p.getLongitude() + "," + p.getLatitude());
+                            mapView.addMarkerItem("l"+(++i), markerItem);
+                        }
 
                         // pass the path to Path Manager
                         pathManager.setPolyLine(tMapPolyLine);
@@ -384,6 +451,7 @@ public class MainActivity extends AppCompatActivity
         // clear previous destination
         try {
             mapView.removeMarkerItem("도착지");
+            mapView.removeAllMarkerItem();
         } catch(Exception ex) {
         }
 
@@ -460,11 +528,18 @@ public class MainActivity extends AppCompatActivity
         @Override
         public void onLocationChanged(Location location) {
             try {
-                Log.d("loc changed", "location changed!");
-                mapView.setLocationPoint(location.getLongitude(), location.getLatitude());
-                if (navigationMode) {
-                    updateDirection();
+                if (GpsManager.isBetterLocation(location, gpsManager.getLastLocation())
+                        && (location.distanceTo(gpsManager.getLastLocation()) < 6.0f)) {
+                    gpsManager.setLastLocation(location);
+
+                    Log.d("loc changed", "location changed!");
+                    mapView.setLocationPoint(location.getLongitude(), location.getLatitude());
+                    if (navigationMode) {
+                        moveToCurrentLocation();
+                        updateDirection();
+                    }
                 }
+
             } catch (Exception ex) {
             }
         }

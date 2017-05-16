@@ -78,7 +78,9 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_toLeftOf="@id/direction"
-        android:layout_alignBottom="@id/direction"
+        android:layout_alignWithParentIfMissing="true"
+        android:layout_alignParentTop="true"
+        android:layout_marginTop="24dp"
         android:text="AR"
         android:visibility="invisible"
         />
