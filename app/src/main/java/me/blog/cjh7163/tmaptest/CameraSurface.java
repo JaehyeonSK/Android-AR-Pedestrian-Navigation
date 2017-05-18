@@ -3,6 +3,7 @@ package me.blog.cjh7163.tmaptest;
 import android.content.Context;
 import android.hardware.Camera;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
@@ -45,23 +46,27 @@ public class CameraSurface extends SurfaceView implements SurfaceHolder.Callback
 
     @Override
     public void surfaceChanged(SurfaceHolder surfaceHolder, int format, int w, int h) {
-        Camera.Parameters params = camera.getParameters();
-        List<Camera.Size> listSize = params.getSupportedPreviewSizes();
-        if (listSize == null) {
-            params.setPreviewSize(w, h);
-        } else {
-            int diff = 10000;
-            Camera.Size opti = null;
-            for (Camera.Size s : listSize) {
-                if (Math.abs(s.height - h) < diff) {
-                    diff = Math.abs(s.height - h);
-                    opti = s;
+        try {
+            Camera.Parameters params = camera.getParameters();
+            List<Camera.Size> listSize = params.getSupportedPreviewSizes();
+            if (listSize == null) {
+                params.setPreviewSize(w, h);
+            } else {
+                int diff = 10000;
+                Camera.Size opti = null;
+                for (Camera.Size s : listSize) {
+                    if (Math.abs(s.height - h) < diff) {
+                        diff = Math.abs(s.height - h);
+                        opti = s;
+                    }
                 }
+                params.setPreviewSize(opti.width, opti.height);
             }
-            params.setPreviewSize(opti.width, opti.height);
+            camera.setParameters(params);
+            camera.setDisplayOrientation(90);
+            camera.startPreview();
+        } catch(Exception ex) {
+            Log.d("Exception:", ex.getMessage());
         }
-        camera.setParameters(params);
-        camera.setDisplayOrientation(90);
-        camera.startPreview();
     }
 }

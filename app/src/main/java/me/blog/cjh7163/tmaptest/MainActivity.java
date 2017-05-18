@@ -8,6 +8,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorManager;
 import android.location.Location;
 import android.location.LocationListener;
+import android.location.LocationManager;
 import android.net.Uri;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
@@ -24,9 +25,9 @@ import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.FrameLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.skp.Tmap.TMapData;
@@ -36,6 +37,9 @@ import com.skp.Tmap.TMapPoint;
 import com.skp.Tmap.TMapPolyLine;
 import com.skp.Tmap.TMapView;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -45,6 +49,7 @@ import me.blog.cjh7163.tmaptest.Augmented.GLClearRenderer;
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
     private static final int REQUEST_SEARCH = 0x0001;
+    private static final int REQUEST_HISTORY = 0x0002;
 
     private boolean selectionMode = false;
     private boolean navigationMode = false;
@@ -56,12 +61,14 @@ public class MainActivity extends AppCompatActivity
     // Views
     private FrameLayout frameMap;
     private TMapView mapView;
-    private Button btnPath;
+//    private Button btnPath;
+    private FloatingActionButton btnPath;
     private FloatingActionButton btnCurrent;
     private FloatingActionButton btnFlag;
     private FloatingActionButton btnDir;
 
     private Toolbar toolbar;
+    private TextView tvToolbarTitle;
     private NavigationView navigationView;
     private DrawerLayout drawerLayout;
 
@@ -82,8 +89,10 @@ public class MainActivity extends AppCompatActivity
     private TimerTask timerTask;
 
     private FrameLayout arSurface;
-    private FloatingActionButton btnAR;
     private SwitchCompat swAR;
+
+    // Marker
+    private ArrayList<String> markerIdList = new ArrayList<>();
 
     @Override
     @SuppressWarnings("deprecation")
@@ -91,7 +100,6 @@ public class MainActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_main);
-
         try {
             initViews();
 
@@ -128,7 +136,6 @@ public class MainActivity extends AppCompatActivity
     @Override
     protected void onResume() {
         super.onResume();
-
         try {
             sensorManager.registerListener(directionManager.sensorEventListener, accSensor, SensorManager.SENSOR_DELAY_UI);
             sensorManager.registerListener(directionManager.sensorEventListener, magSensor, SensorManager.SENSOR_DELAY_UI);
@@ -140,7 +147,6 @@ public class MainActivity extends AppCompatActivity
     @Override
     protected void onPause() {
         super.onPause();
-
         try {
             sensorManager.unregisterListener(directionManager.sensorEventListener);
         } catch(Exception ex) {
@@ -170,7 +176,8 @@ public class MainActivity extends AppCompatActivity
 
         frameMap.addView(mapView);
 
-        btnPath = (Button)findViewById(R.id.btnPath);
+//        btnPath = (Button)findViewById(R.id.btnPath);
+        btnPath = (FloatingActionButton)findViewById(R.id.btnPath);
         btnPath.setOnClickListener(btnPathClicked);
 
         btnCurrent = (FloatingActionButton)findViewById(R.id.btnCurrent);
@@ -182,6 +189,7 @@ public class MainActivity extends AppCompatActivity
         //Drawer Layout
         drawerLayout = (DrawerLayout)findViewById(R.id.activity_main);
         toolbar = (Toolbar)findViewById(R.id.toolbar);
+        tvToolbarTitle = (TextView)findViewById(R.id.tvTitle);
 
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
                 this,
@@ -207,13 +215,11 @@ public class MainActivity extends AppCompatActivity
                     toolbar.setNavigationIcon(null);
                     arSurface.setVisibility(View.VISIBLE);
                     btnDir.setVisibility(View.GONE);
-                    //TODO: 3D Direction Mark VISIBLE
                     startAR();
                 } else {
                     toolbar.setNavigationIcon(navIcon);
                     arSurface.setVisibility(View.INVISIBLE);
                     btnDir.setVisibility(View.VISIBLE);
-                    //TODO: 3D Direction Mark INVISIBLE
                     stopAR();
                 }
             }
@@ -227,7 +233,6 @@ public class MainActivity extends AppCompatActivity
         try {
             FrameLayout content = (FrameLayout) findViewById(R.id.arSurface);
 
-            // TODO: OpenGL Initialize
             renderer = new GLClearRenderer();
 
             glSurfaceView = new GLSurfaceView(this);
@@ -237,6 +242,8 @@ public class MainActivity extends AppCompatActivity
             glSurfaceView.setRenderer(renderer);
 
             toolbar.setTitle("증강현실 모드");
+            tvToolbarTitle.setText("증강현실 모드");
+
             content.addView(glSurfaceView);
 
             glSurfaceView.setZOrderMediaOverlay(true);
@@ -251,6 +258,7 @@ public class MainActivity extends AppCompatActivity
             glSurfaceView.setZOrderMediaOverlay(false);
 
             toolbar.setTitle(null);
+            tvToolbarTitle.setText(null);
             content.removeView(glSurfaceView);
         } catch(Exception ex) {
             Log.d("Exception::", ex.getMessage());
@@ -272,31 +280,55 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void updateDirection() {
-        float distThreshold = 3.0f;
-        Vector nearestVector = null;
+        float distThreshold = 12.0f; // 12 meter
+//        Vector nearestVector = null;
+        TMapPoint nearestPoint = null;
 
         try {
-            if (nearestVector == null) {
-                nearestVector = pathManager.getNearestVector();
-            }
+//            if (nearestVector == null) {
+//                nearestVector = pathManager.getNearestVector();
+//            }
 
-            double distance = nearestVector.getDistance();
+            nearestPoint = pathManager.getNearestPoint();
+//            Log.d("nearest:", "" + pathManager.getNearestIndex());
+
+//            double distance = nearestVector.getDistance();
+            Location currentLocation = gpsManager.getCurrentLocation();
+            Location nearestLocation = new Location(LocationManager.GPS_PROVIDER);
+            nearestLocation.setLongitude(nearestPoint.getLongitude());
+            nearestLocation.setLatitude(nearestPoint.getLatitude());
+
+            double distance = LocationUtils.distanceBetween(currentLocation, nearestLocation);
+//            Log.d("distance:", "" + distance);
             if(distance < distThreshold) {
-                // in 3.0 meter
+                int nearestIndex = pathManager.getNearestIndex();
+
+                // remove nearest marker and marker id
+                String targetMarkerId = markerIdList.get(nearestIndex);
+                mapView.removeMarkerItem(targetMarkerId);
+                markerIdList.remove(nearestIndex);
+
                 if(pathManager.hasNext()) {
                     // Path has next point
-                    nearestVector = pathManager.getNearestVector();
+//                    nearestVector = pathManager.getNearestVector();
+                    nearestPoint = pathManager.getNearestPoint();
                 } else {
                     // Navigation Complete !!!
-                    nearestVector = null;
+//                    nearestVector = null;
+                    nearestPoint = null;
+
                     Toast.makeText(this, "목적지에 도착하였습니다.", Toast.LENGTH_SHORT).show();
                     setNavigationMode(false);
+                    return;
                 }
             } else {
                 // out of 3.0 meters
             }
 
-            double direction = nearestVector.getDirection();
+//            double direction = nearestVector.getDirection();
+            nearestLocation.setLongitude(nearestPoint.getLongitude());
+            nearestLocation.setLatitude(nearestPoint.getLatitude());
+            double direction = LocationUtils.directionBetween(currentLocation, nearestLocation);
 
             btnDir.setRotation((float)direction);
             if (renderer != null) {
@@ -310,8 +342,8 @@ public class MainActivity extends AppCompatActivity
                 renderer.setAngleY(directionManager.getRoll());
             }
 
-            Log.d("Degree:", "" + nearestVector.getDirection());
-            Log.d("Distance:", "" + nearestVector.getDistance());
+//            Log.d("Degree:", "" + nearestVector.getDirection());
+//            Log.d("Distance:", "" + nearestVector.getDistance());
         } catch(Exception ex) {
             Log.d("Exception:", ex.getMessage());
         }
@@ -341,18 +373,20 @@ public class MainActivity extends AppCompatActivity
                         // add Path from current to destination on TMap View
                         mapView.addTMapPath(tMapPolyLine);
 
-                        // TODO: Line Point
+                        // Line Point ArrayList
                         ArrayList<TMapPoint> linePoints = tMapPolyLine.getLinePoint();
-                        Log.d("LP::", linePoints.size() + "개");
+                        markerIdList.clear();
 
-                        int i;
-
-                        i = 0;
+                        int i = 0;
+                        // Add Markers on TMapView
                         for (TMapPoint p : linePoints) {
                             TMapMarkerItem markerItem = new TMapMarkerItem();
                             markerItem.setTMapPoint(p);
-                            Log.d("LonLat::", p.getLongitude() + "," + p.getLatitude());
-                            mapView.addMarkerItem("l"+(++i), markerItem);
+
+                            String id = "l" + (i++);
+                            markerItem.setID(id);
+                            mapView.addMarkerItem(id, markerItem);
+                            markerIdList.add(id);
                         }
 
                         // pass the path to Path Manager
@@ -371,7 +405,9 @@ public class MainActivity extends AppCompatActivity
                 // enable compass mode
                 mapView.setCompassMode(true);
 
-                btnPath.setText("길찾기 종료");
+//                btnPath.setText("길찾기 종료");
+                btnPath.setImageResource(R.drawable.flag);
+
                 swAR.setVisibility(View.VISIBLE);
                 //btnAR.setVisibility(View.VISIBLE); // set AR button visible
 
@@ -401,8 +437,10 @@ public class MainActivity extends AppCompatActivity
             // enable User Scroll & Zoom
             mapView.setUserScrollZoomEnable(false);
             mapView.setCompassMode(true);
-            // clear map path
+
+            // clear map path & markers
             mapView.removeTMapPath();
+            mapView.removeAllMarkerItem();
 
             // nav service timer stop
             try {
@@ -410,7 +448,9 @@ public class MainActivity extends AppCompatActivity
             } catch (Exception ex) {
             }
 
-            btnPath.setText("길찾기");
+//            btnPath.setText("길찾기");
+            btnPath.setImageResource(R.drawable.ic_stat_name);
+
             swAR.setVisibility(View.INVISIBLE);
 //            btnAR.setVisibility(View.INVISIBLE);
         }
@@ -421,6 +461,7 @@ public class MainActivity extends AppCompatActivity
 
         if (isSelectionMode) {
             toolbar.setTitle("도착지를 설정하세요.");
+            tvToolbarTitle.setText("도착지를 설정하세요.");
 
             mapView.setOnLongClickListenerCallback(new TMapView.OnLongClickListenerCallback() {
                 @Override
@@ -442,7 +483,8 @@ public class MainActivity extends AppCompatActivity
                 }
             });
         } else {
-            toolbar.setTitle("");
+            toolbar.setTitle(null);
+            tvToolbarTitle.setText(null);
             mapView.setOnLongClickListenerCallback(null);
         }
     }
@@ -451,7 +493,6 @@ public class MainActivity extends AppCompatActivity
         // clear previous destination
         try {
             mapView.removeMarkerItem("도착지");
-            mapView.removeAllMarkerItem();
         } catch(Exception ex) {
         }
 
@@ -478,8 +519,11 @@ public class MainActivity extends AppCompatActivity
                     startActivityForResult(intent, REQUEST_SEARCH);
                     break;
                 }
-                case R.id.nav_history:
+                case R.id.nav_history: {
+                    Intent intent = new Intent(MainActivity.this, HistoryActivity.class);
+                    startActivityForResult(intent, REQUEST_HISTORY);
                     break;
+                }
                 case R.id.nav_help:
                     break;
                 case R.id.nav_send: {
@@ -512,6 +556,30 @@ public class MainActivity extends AppCompatActivity
                     setDestination(mapPoint);
                     mapView.setCenterPoint(longitude, latitude);
 
+                    // 기록을 파일에 저장
+                    BufferedWriter bw;
+                    try {
+                        bw = new BufferedWriter(new FileWriter(new File(getFilesDir(), "history.txt"), true));
+                        bw.append(String.format("%s %f %f", name, longitude, latitude));
+                        bw.newLine();
+                        bw.close();
+                    } catch(Exception ex) {
+                        Log.d("FileWriteException:", ex.getMessage());
+                    }
+
+                    break;
+                }
+                case REQUEST_HISTORY:{
+                    setNavigationMode(false);
+
+                    String name = data.getStringExtra("POI");
+                    double longitude = data.getDoubleExtra("LON", 0.0);
+                    double latitude = data.getDoubleExtra("LAT", 0.0);
+
+                    TMapPoint mapPoint = new TMapPoint(latitude, longitude);
+                    setDestination(mapPoint);
+                    mapView.setCenterPoint(longitude, latitude);
+
                     break;
                 }
                 default: {
@@ -524,19 +592,25 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
+
+    ////////////////////////////////////////////////////////////////
+    //
+    //  Listeners
+    ////////////////////////////////////////////////////////////////
+
     public LocationListener locationListener = new LocationListener() {
         @Override
         public void onLocationChanged(Location location) {
             try {
                 if (GpsManager.isBetterLocation(location, gpsManager.getLastLocation())
-                        && (location.distanceTo(gpsManager.getLastLocation()) < 6.0f)) {
+                        && (location.distanceTo(gpsManager.getLastLocation()) < 8.0f)) {
                     gpsManager.setLastLocation(location);
 
-                    Log.d("loc changed", "location changed!");
+//                    Log.d("loc changed", "location changed!");
                     mapView.setLocationPoint(location.getLongitude(), location.getLatitude());
                     if (navigationMode) {
                         moveToCurrentLocation();
-                        updateDirection();
+//                        updateDirection();
                     }
                 }
 

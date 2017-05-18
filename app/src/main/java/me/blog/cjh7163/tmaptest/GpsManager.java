@@ -89,6 +89,9 @@ public class GpsManager {
             ActivityCompat.requestPermissions(appContext, new String[] {Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_LOCATION);
         }
 
+        // TODO: fly gps 테스트 전용
+//        return locManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+
         Location location;
         int satelliteCount = getGpsSatelliteCount();
 
@@ -98,7 +101,7 @@ public class GpsManager {
             location = locManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
         }
 
-        Log.d("current: ", location.getLongitude() + ", " + location.getLatitude());
+//        Log.d("current: ", location.getLongitude() + ", " + location.getLatitude());
 
         if (isBetterLocation(location, lastLocation)) {
             this.lastLocation = location;
@@ -106,6 +109,7 @@ public class GpsManager {
         } else {
             return lastLocation;
         }
+
     }
 
     public Location getLastLocation() {

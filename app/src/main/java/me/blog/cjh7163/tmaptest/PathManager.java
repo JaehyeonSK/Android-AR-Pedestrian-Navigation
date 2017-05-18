@@ -73,9 +73,27 @@ public class PathManager {
         return vector;
     }
 
+    public TMapPoint getNearestPoint() {
+        TMapPoint point = null;
+
+        try {
+            updateNearest();
+            point = points.get(nearest);
+        } catch(Exception ex) {
+            Log.d("Error::", ex.getMessage());
+        }
+
+        return point;
+    }
+
     public boolean hasNext() {
-        points.remove(0);
+        //points.remove(0);
+        points.remove(nearest);
         return (points.size() > 0) ? true : false;
+    }
+
+    public int getNearestIndex() {
+        return nearest;
     }
 
     public static PathManager getInstance() {

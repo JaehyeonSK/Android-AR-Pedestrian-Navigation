@@ -27,7 +27,7 @@ public class SearchActivity extends AppCompatActivity {
     SearchListAdapter adapter;
     ArrayList<POI> arrayPOI;
 
-    public class POI {
+    public static class POI {
         public String name;
         public double latitude;
         public double longitude;
@@ -71,7 +71,6 @@ public class SearchActivity extends AppCompatActivity {
 
                                     setResult(RESULT_OK, intent);
                                     finish();
-                                    Log.d("End", "End");
                                 }
                             }).show();
                 } catch(Exception ex){
