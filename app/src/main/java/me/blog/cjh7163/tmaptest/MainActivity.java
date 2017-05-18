@@ -24,6 +24,7 @@ import android.support.v7.widget.SwitchCompat;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.CompoundButton;
 import android.widget.FrameLayout;
@@ -240,6 +241,50 @@ public class MainActivity extends AppCompatActivity
             // set format as translucent
             glSurfaceView.getHolder().setFormat(PixelFormat.TRANSLUCENT);
             glSurfaceView.setRenderer(renderer);
+            glSurfaceView.setOnTouchListener(new View.OnTouchListener() {
+                boolean touchDown = false;
+                float deltaX, deltaY;
+                float x1, y1, x2, y2;
+
+                @Override
+                public boolean onTouch(View v, MotionEvent event) {
+                    switch(event.getAction()) {
+                        case MotionEvent.ACTION_DOWN: {
+                            touchDown = true;
+                            x1 = event.getX();
+                            y1 = event.getY();
+                            break;
+                        }
+                        case MotionEvent.ACTION_MOVE:
+                            if (touchDown) {
+                                x2 = event.getX();
+                                y2 = event.getY();
+
+                                deltaX = (x2-x1)/150.0f;
+                                deltaY = (y2-y1)/150.0f;
+
+                                // length(x): 4.1
+                                // length(y): 7.1
+                                // -1.7 <= x <= 1.7
+                                renderer.setX(Math.max(-1.6f, Math.min(1.6f, renderer.getX() + deltaX)));
+                                // -3.9 <= y <= 2.5
+                                renderer.setY(Math.max(-2.9f, Math.min(2.4f, renderer.getY() - deltaY)));
+
+                                Log.d("pos:", "x:" + renderer.getX() + ", y:" + renderer.getY());
+
+                                x1 = x2;
+                                y1 = y2;
+                                break;
+                            }
+                        case MotionEvent.ACTION_UP: {
+                            touchDown = false;
+                            break;
+                        }
+                    }
+
+                    return true;
+                }
+            });
 
             toolbar.setTitle("증강현실 모드");
             tvToolbarTitle.setText("증강현실 모드");

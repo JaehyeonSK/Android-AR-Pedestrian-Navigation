@@ -15,12 +15,13 @@ public class GLClearRenderer implements Renderer {
 
     private DirectionMark directionMark = new DirectionMark();
     private float angleX, angleY, angleZ;
+    private float x = 0.0f, y = 2.5f;
 
     public void onDrawFrame(GL10 gl) {
         gl.glClear(GL10.GL_COLOR_BUFFER_BIT | GL10.GL_DEPTH_BUFFER_BIT);
         gl.glLoadIdentity();
 
-        gl.glTranslatef(0.0f, 2.5f, -10.0f);
+        gl.glTranslatef(x, y, -10.0f);
         gl.glScalef(2.0f, 2.0f, 2.0f);
         gl.glRotatef(angleX, 1.0f, 0f, 0f);
         gl.glRotatef(angleY, 0f, 1.0f, 0f);
@@ -30,6 +31,7 @@ public class GLClearRenderer implements Renderer {
 
         gl.glLoadIdentity();
     }
+
 
     public void onSurfaceChanged( GL10 gl, int width, int height ) {
         // This is called whenever the dimensions of the surface have changed.
@@ -43,6 +45,22 @@ public class GLClearRenderer implements Renderer {
 
         gl.glMatrixMode(GL10.GL_MODELVIEW);
         gl.glLoadIdentity();
+    }
+
+    public float getX() {
+        return x;
+    }
+
+    public void setX(float x) {
+        this.x = x;
+    }
+
+    public float getY() {
+        return y;
+    }
+
+    public void setY(float y) {
+        this.y = y;
     }
 
     public float getAngleX() {
