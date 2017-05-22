@@ -18,9 +18,28 @@ class DirectionMark {
     private ByteBuffer mIndexBuffer;
     private ByteBuffer mIndexBorderBuffer;
 
+//    private float vertices[] = {
+//            // 1st floor
+//            0.0f,  0.7f, 0.1f,
+//            -0.4f,  0.0f, 0.1f,
+//            0.4f,  0.0f, 0.1f,
+//            -0.2f,  0.0f, 0.1f,
+//            -0.2f, -0.5f, 0.1f,
+//            0.2f, -0.5f, 0.1f,
+//            0.2f,  0.0f, 0.1f,
+//
+//            // 2nd floor
+//            0.0f,  0.7f, -0.1f,
+//            -0.4f,  0.0f, -0.1f,
+//            0.4f,  0.0f, -0.1f,
+//            -0.2f,  0.0f, -0.1f,
+//            -0.2f, -0.5f, -0.1f,
+//            0.2f, -0.5f, -0.1f,
+//            0.2f,  0.0f, -0.1f,
+//    };
     private float vertices[] = {
             // 1st floor
-            0.0f,  0.7f, 0.1f,
+            0.0f,  0.5f, 0.1f,
             -0.4f,  0.0f, 0.1f,
             0.4f,  0.0f, 0.1f,
             -0.2f,  0.0f, 0.1f,
@@ -29,7 +48,7 @@ class DirectionMark {
             0.2f,  0.0f, 0.1f,
 
             // 2nd floor
-            0.0f,  0.7f, -0.1f,
+            0.0f,  0.5f, -0.1f,
             -0.4f,  0.0f, -0.1f,
             0.4f,  0.0f, -0.1f,
             -0.2f,  0.0f, -0.1f,
@@ -37,6 +56,7 @@ class DirectionMark {
             0.2f, -0.5f, -0.1f,
             0.2f,  0.0f, -0.1f,
     };
+
     private float colors[] = {
             0.0f,  1.0f,  0.0f,  0.5f,
             0.0f,  1.0f,  0.0f,  0.5f,
@@ -176,6 +196,7 @@ class DirectionMark {
     }
 
     public void draw(GL10 gl) {
+
         gl.glFrontFace(GL10.GL_CW);
 
         // Draw Shape
@@ -204,5 +225,15 @@ class DirectionMark {
 
         gl.glDisableClientState(GL10.GL_VERTEX_ARRAY);
         gl.glDisableClientState(GL10.GL_COLOR_ARRAY);
+    }
+
+    public void setColors(float[] colors) {
+        this.colors = colors;
+
+        ByteBuffer byteBuf = ByteBuffer.allocateDirect(colors.length * 4);
+        byteBuf.order(ByteOrder.nativeOrder());
+        mColorBuffer = byteBuf.asFloatBuffer();
+        mColorBuffer.put(colors);
+        mColorBuffer.position(0);
     }
 }

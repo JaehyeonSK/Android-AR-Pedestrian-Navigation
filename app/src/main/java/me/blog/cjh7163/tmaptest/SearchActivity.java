@@ -17,6 +17,8 @@ import com.skp.Tmap.TMapPOIItem;
 
 import java.util.ArrayList;
 
+import me.blog.cjh7163.tmaptest.Utils.StringUtils;
+
 public class SearchActivity extends AppCompatActivity {
 
     TMapData mapData;

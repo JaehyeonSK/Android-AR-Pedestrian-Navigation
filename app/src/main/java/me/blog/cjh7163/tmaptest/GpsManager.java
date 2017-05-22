@@ -30,8 +30,23 @@ public class GpsManager {
     private Activity appContext;
 
     private Location lastLocation;
+    private LocationListener locationListener;
 
     private GpsManager() {}
+
+    public void start() {
+        try {
+            locManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 3, locationListener);
+        } catch(SecurityException ex) {
+        }
+    }
+
+    public void stop() {
+        try {
+            locManager.removeUpdates(locationListener);
+        } catch(Exception ex) {
+        }
+    }
 
     private int getGpsSatelliteCount() {
         if (ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -81,6 +96,7 @@ public class GpsManager {
         if (ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(appContext, new String[] {Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_LOCATION);
         }
+        this.locationListener = locationListener;
         locManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 3, locationListener);
     }
 
@@ -104,6 +120,7 @@ public class GpsManager {
 //        Log.d("current: ", location.getLongitude() + ", " + location.getLatitude());
 
         if (isBetterLocation(location, lastLocation)) {
+            //Toast.makeText(appContext, "better location!", Toast.LENGTH_SHORT).show();
             this.lastLocation = location;
             return location;
         } else {
@@ -123,7 +140,7 @@ public class GpsManager {
         this.lastLocation = lastLocation;
     }
 
-    private static final int TWO_SECONDS = 1000 * 60;
+    private static final int ONE_SECONDS = 1000 * 1;
 
     public static boolean isBetterLocation(Location location, Location currentBestLocation) {
         if (currentBestLocation == null) {
@@ -131,8 +148,8 @@ public class GpsManager {
         }
 
         long timeDelta = location.getTime() - currentBestLocation.getTime();
-        boolean isSignificantlyNewer = timeDelta > TWO_SECONDS;
-        boolean isSignificantlyOlder = timeDelta < -TWO_SECONDS;
+        boolean isSignificantlyNewer = timeDelta > ONE_SECONDS;
+        boolean isSignificantlyOlder = timeDelta < -ONE_SECONDS;
         boolean isNewer = timeDelta > 0;
 
         if (isSignificantlyNewer) {

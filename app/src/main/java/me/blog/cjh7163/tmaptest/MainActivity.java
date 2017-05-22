@@ -46,11 +46,16 @@ import java.util.Timer;
 import java.util.TimerTask;
 
 import me.blog.cjh7163.tmaptest.Augmented.GLClearRenderer;
+import me.blog.cjh7163.tmaptest.Settings.Preference;
+import me.blog.cjh7163.tmaptest.Settings.SettingsActivity;
+import me.blog.cjh7163.tmaptest.Utils.LocationUtils;
 
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
     private static final int REQUEST_SEARCH = 0x0001;
     private static final int REQUEST_HISTORY = 0x0002;
+
+    private long backPressedTime = 0;
 
     private boolean selectionMode = false;
     private boolean navigationMode = false;
@@ -135,12 +140,38 @@ public class MainActivity extends AppCompatActivity
     }
 
     @Override
+    public void onBackPressed() {
+//        super.onBackPressed();
+        if (arMode) {
+            swAR.setChecked(false);
+        } else if (navigationMode) {
+            setNavigationMode(false);
+        } else if (selectionMode) {
+            setSelectionMode(false);
+        } else {
+            if (!arMode && !navigationMode) {
+                long currentTime = System.currentTimeMillis();
+
+                if (currentTime - backPressedTime < 2000) {
+
+                    finish();
+                } else {
+                    backPressedTime = currentTime;
+                    Toast.makeText(this, "종료하려면 뒤로가기 버튼을 누르세요.", Toast.LENGTH_SHORT).show();
+                }
+
+            }
+        }
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         try {
             sensorManager.registerListener(directionManager.sensorEventListener, accSensor, SensorManager.SENSOR_DELAY_UI);
             sensorManager.registerListener(directionManager.sensorEventListener, magSensor, SensorManager.SENSOR_DELAY_UI);
             sensorManager.registerListener(directionManager.sensorEventListener, oriSensor, SensorManager.SENSOR_DELAY_UI);
+            gpsManager.start();
         } catch(Exception ex) {
         }
     }
@@ -150,6 +181,7 @@ public class MainActivity extends AppCompatActivity
         super.onPause();
         try {
             sensorManager.unregisterListener(directionManager.sensorEventListener);
+            gpsManager.stop();
         } catch(Exception ex) {
         }
     }
@@ -159,6 +191,7 @@ public class MainActivity extends AppCompatActivity
         super.onDestroy();
         try {
             timer.cancel();
+            gpsManager.stop();
         } catch(Exception ex) {
         }
     }
@@ -266,9 +299,9 @@ public class MainActivity extends AppCompatActivity
                                 // length(x): 4.1
                                 // length(y): 7.1
                                 // -1.7 <= x <= 1.7
-                                renderer.setX(Math.max(-1.6f, Math.min(1.6f, renderer.getX() + deltaX)));
+                                renderer.setX(Math.max(-1.7f, Math.min(1.8f, renderer.getX() + deltaX)));
                                 // -3.9 <= y <= 2.5
-                                renderer.setY(Math.max(-2.9f, Math.min(2.4f, renderer.getY() - deltaY)));
+                                renderer.setY(Math.max(-2.9f, Math.min(2.9f, renderer.getY() - deltaY)));
 
                                 Log.d("pos:", "x:" + renderer.getX() + ", y:" + renderer.getY());
 
@@ -377,6 +410,24 @@ public class MainActivity extends AppCompatActivity
 
             btnDir.setRotation((float)direction);
             if (renderer != null) {
+                // to correct gps position error
+                if(Preference.getInstance().isCorrect) {
+                    int nearestIndex = pathManager.getNearestIndex();
+                    if (nearestIndex + 1 < markerIdList.size()) {
+                        TMapMarkerItem nextMarker = mapView.getMarkerItemFromID(markerIdList.get(nearestIndex + 1));
+                        Location nextLocation = new Location(LocationManager.GPS_PROVIDER);
+                        nextLocation.setLongitude(nextMarker.longitude);
+                        nextLocation.setLatitude(nextMarker.latitude);
+
+                        direction = (direction + LocationUtils.directionBetween(nearestLocation, nextLocation)) / 2;
+                    }
+                }
+
+                // to stabilize direction mark
+                if(Preference.getInstance().isStabilize) {
+                    direction = Math.round(direction * 0.1) * 10.0;
+                }
+
                 // angle z is reversed
                 renderer.setAngleZ((float)-direction);
 
@@ -577,6 +628,11 @@ public class MainActivity extends AppCompatActivity
                     startActivity(intent);
                     break;
                 }
+                case R.id.nav_settings: {
+                    Intent intent = new Intent(MainActivity.this, SettingsActivity.class);
+                    startActivity(intent);
+                    break;
+                }
             }
         } catch (Exception ex) {
             Log.d("Exception:", ex.getMessage());
@@ -614,7 +670,7 @@ public class MainActivity extends AppCompatActivity
 
                     break;
                 }
-                case REQUEST_HISTORY:{
+                case REQUEST_HISTORY: {
                     setNavigationMode(false);
 
                     String name = data.getStringExtra("POI");

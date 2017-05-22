@@ -1,6 +1,8 @@
-package me.blog.cjh7163.tmaptest;
+package me.blog.cjh7163.tmaptest.Utils;
 
 import android.location.Location;
+
+import me.blog.cjh7163.tmaptest.DirectionManager;
 
 /**
  * Created by david2 on 2017-05-16.
