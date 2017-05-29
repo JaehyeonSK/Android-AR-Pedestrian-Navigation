@@ -358,7 +358,7 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void updateDirection() {
-        float distThreshold = 12.0f; // 12 meter
+        float distThreshold = 20.0f; // 20 meter
 //        Vector nearestVector = null;
         TMapPoint nearestPoint = null;
 
@@ -703,8 +703,11 @@ public class MainActivity extends AppCompatActivity
         @Override
         public void onLocationChanged(Location location) {
             try {
-                if (GpsManager.isBetterLocation(location, gpsManager.getLastLocation())
-                        && (location.distanceTo(gpsManager.getLastLocation()) < 8.0f)) {
+                float distanceFromPrev = location.distanceTo(gpsManager.getLastLocation());
+
+//                if (GpsManager.isBetterLocation(location, gpsManager.getLastLocation())
+//                        && (distanceFromPrev < 20.0f)) {
+                if ((distanceFromPrev < 20.0f) || (distanceFromPrev > 100.0f)) {
                     gpsManager.setLastLocation(location);
 
 //                    Log.d("loc changed", "location changed!");
@@ -714,7 +717,6 @@ public class MainActivity extends AppCompatActivity
 //                        updateDirection();
                     }
                 }
-
             } catch (Exception ex) {
             }
         }
