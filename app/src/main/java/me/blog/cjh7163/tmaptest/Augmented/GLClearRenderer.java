@@ -48,7 +48,7 @@ public class GLClearRenderer implements Renderer {
 
         gl.glTranslatef(x, y, -10.0f);
 //        gl.glScalef(2.0f, 2.0f, 2.0f);
-        gl.glScalef(1.5f, 1.5f, 1.5f);
+        gl.glScalef(2.3f, 2.3f, 2.3f);
 
         gl.glRotatef(angleX, 1.0f, 0f, 0f);
         gl.glRotatef(angleY, 0f, 1.0f, 0f);

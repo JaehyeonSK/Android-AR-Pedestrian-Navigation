@@ -26,8 +26,12 @@ import android.util.Log;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -49,6 +53,12 @@ import me.blog.cjh7163.tmaptest.Augmented.GLClearRenderer;
 import me.blog.cjh7163.tmaptest.Settings.Preference;
 import me.blog.cjh7163.tmaptest.Settings.SettingsActivity;
 import me.blog.cjh7163.tmaptest.Utils.LocationUtils;
+import me.blog.cjh7163.tmaptest.Utils.ScreenUtils;
+
+import static android.view.MotionEvent.ACTION_DOWN;
+import static android.view.MotionEvent.ACTION_MOVE;
+import static android.view.MotionEvent.ACTION_POINTER_UP;
+import static android.view.MotionEvent.ACTION_UP;
 
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
@@ -65,9 +75,12 @@ public class MainActivity extends AppCompatActivity
     private Drawable navIcon = null;
 
     // Views
+    private RelativeLayout relativeContent;
     private FrameLayout frameMap;
     private TMapView mapView;
-//    private Button btnPath;
+
+    private ImageView splitter;
+
     private FloatingActionButton btnPath;
     private FloatingActionButton btnCurrent;
     private FloatingActionButton btnFlag;
@@ -197,14 +210,19 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void initViews() {
+        relativeContent = (RelativeLayout)findViewById(R.id.relativeContent);
         frameMap = (FrameLayout)findViewById(R.id.frameMap);
+        splitter = (ImageView)findViewById(R.id.splitter);
+
+        splitter.setOnTouchListener(splitterTouched);
 
         mapView = new TMapView(this);
+
         mapView.setSKPMapApiKey(getString(R.string.tmap_api_key));
         mapView.setIconVisibility(true);
         mapView.setZoomLevel(16);
 //        mapView.setMapType(TMapView.MAPTYPE_STANDARD);
-        mapView.setCompassMode(true);
+        mapView.setCompassMode(false);
 //        mapView.setTrackingMode(true);
 
 
@@ -265,6 +283,21 @@ public class MainActivity extends AppCompatActivity
 
     private void startAR() {
         try {
+            // 1:2.5 비율로 맵뷰와 카메라 프리뷰 영상을 동시에 보여줌
+            float screenHeight = ScreenUtils.getScreenHeight(this);
+
+            ViewGroup.LayoutParams frameMapParams = frameMap.getLayoutParams();
+            frameMapParams.height = (int)(screenHeight / 3.5);
+
+            ViewGroup.LayoutParams arParams = arSurface.getLayoutParams();
+            arParams.height = (int)(screenHeight / 1.75);
+
+            frameMap.setLayoutParams(frameMapParams);
+            arSurface.setLayoutParams(arParams);
+
+            // splitter 보이기
+            splitter.setVisibility(ImageView.VISIBLE);
+
             FrameLayout content = (FrameLayout) findViewById(R.id.arSurface);
 
             renderer = new GLClearRenderer();
@@ -282,13 +315,13 @@ public class MainActivity extends AppCompatActivity
                 @Override
                 public boolean onTouch(View v, MotionEvent event) {
                     switch(event.getAction()) {
-                        case MotionEvent.ACTION_DOWN: {
+                        case ACTION_DOWN: {
                             touchDown = true;
                             x1 = event.getX();
                             y1 = event.getY();
                             break;
                         }
-                        case MotionEvent.ACTION_MOVE:
+                        case ACTION_MOVE:
                             if (touchDown) {
                                 x2 = event.getX();
                                 y2 = event.getY();
@@ -303,13 +336,11 @@ public class MainActivity extends AppCompatActivity
                                 // -3.9 <= y <= 2.5
                                 renderer.setY(Math.max(-2.9f, Math.min(2.9f, renderer.getY() - deltaY)));
 
-                                Log.d("pos:", "x:" + renderer.getX() + ", y:" + renderer.getY());
-
                                 x1 = x2;
                                 y1 = y2;
                                 break;
                             }
-                        case MotionEvent.ACTION_UP: {
+                        case ACTION_UP: {
                             touchDown = false;
                             break;
                         }
@@ -322,7 +353,9 @@ public class MainActivity extends AppCompatActivity
             toolbar.setTitle("증강현실 모드");
             tvToolbarTitle.setText("증강현실 모드");
 
+            btnPath.setVisibility(Button.INVISIBLE);
             content.addView(glSurfaceView);
+            relativeContent.bringToFront();
 
             glSurfaceView.setZOrderMediaOverlay(true);
         } catch(Exception ex) {
@@ -332,11 +365,21 @@ public class MainActivity extends AppCompatActivity
 
     private void stopAR() {
         try {
+            // 맵뷰 크기 원상복구
+            ViewGroup.LayoutParams frameMapParams = frameMap.getLayoutParams();
+            frameMapParams.height = ViewGroup.LayoutParams.MATCH_PARENT;
+            frameMap.setLayoutParams(frameMapParams);
+
             FrameLayout content = (FrameLayout) findViewById(R.id.arSurface);
             glSurfaceView.setZOrderMediaOverlay(false);
 
             toolbar.setTitle(null);
             tvToolbarTitle.setText(null);
+            btnPath.setVisibility(Button.VISIBLE);
+
+            // splitter 제거
+            splitter.setVisibility(ImageView.GONE);
+
             content.removeView(glSurfaceView);
         } catch(Exception ex) {
             Log.d("Exception::", ex.getMessage());
@@ -501,13 +544,22 @@ public class MainActivity extends AppCompatActivity
                 // enable compass mode
                 mapView.setCompassMode(true);
 
-//                btnPath.setText("길찾기 종료");
+                // change button icon and hide temporarily
                 btnPath.setImageResource(R.drawable.flag);
+                btnPath.setVisibility(View.INVISIBLE);
 
                 swAR.setVisibility(View.VISIBLE);
-                //btnAR.setVisibility(View.VISIBLE); // set AR button visible
 
                 Toast.makeText(this, "길 안내를 시작합니다.", Toast.LENGTH_SHORT).show();
+
+                // always compass mode
+                mapView.setOnTouchListener(new View.OnTouchListener() {
+                    @Override
+                    public boolean onTouch(View v, MotionEvent event) {
+                        mapView.setCompassMode(true);
+                        return true;
+                    }
+                });
 
                 moveToCurrentLocation();
 
@@ -524,6 +576,8 @@ public class MainActivity extends AppCompatActivity
             } catch (Exception ex) {
                 Log.d("Exception:", ex.getMessage());
                 setNavigationMode(false);
+            } finally {
+                btnPath.setVisibility(View.VISIBLE);
             }
 
         } else {
@@ -532,7 +586,10 @@ public class MainActivity extends AppCompatActivity
 
             // enable User Scroll & Zoom
             mapView.setUserScrollZoomEnable(false);
-            mapView.setCompassMode(true);
+            mapView.setCompassMode(false);
+
+            // disable always compass mode
+            mapView.setOnTouchListener(null);
 
             // clear map path & markers
             mapView.removeTMapPath();
@@ -544,11 +601,9 @@ public class MainActivity extends AppCompatActivity
             } catch (Exception ex) {
             }
 
-//            btnPath.setText("길찾기");
             btnPath.setImageResource(R.drawable.ic_stat_name);
 
             swAR.setVisibility(View.INVISIBLE);
-//            btnAR.setVisibility(View.INVISIBLE);
         }
     }
 
@@ -759,4 +814,45 @@ public class MainActivity extends AppCompatActivity
         }
     };
 
+    private View.OnTouchListener splitterTouched = new View.OnTouchListener() {
+        int dy, cy;
+
+        @Override
+        public boolean onTouch(View v, MotionEvent event) {
+            switch(event.getAction() & MotionEvent.ACTION_MASK) {
+                case ACTION_DOWN:
+                    cy = (int)event.getRawY();
+                    break;
+                case ACTION_UP:
+                    break;
+                case ACTION_POINTER_UP:
+                    break;
+                case ACTION_MOVE:
+//                    final int minHeight = (int)ScreenUtils.getScreenHeight(MainActivity.this) / 4;
+                    final int minHeight = 0;
+                    final int maxHeight = (int)ScreenUtils.getScreenHeight(MainActivity.this) / 2;
+
+                    ViewGroup.LayoutParams params = frameMap.getLayoutParams();
+                    dy = (int)event.getRawY() - cy;
+                    cy = dy + cy;
+
+                    if ((dy + params.height < minHeight) || (dy + params.height > maxHeight)) {
+                        break;
+                    }
+
+                    params.height += dy;
+
+                    ViewGroup.LayoutParams params2 = arSurface.getLayoutParams();
+                    params2.height -= dy;
+
+                    arSurface.setLayoutParams(params2);
+
+                    frameMap.setLayoutParams(params);
+                    break;
+                default:
+                    return false;
+            }
+            return true;
+        }
+    };
 }
