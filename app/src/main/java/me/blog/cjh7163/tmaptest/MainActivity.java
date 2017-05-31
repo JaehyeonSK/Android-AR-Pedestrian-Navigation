@@ -71,6 +71,7 @@ public class MainActivity extends AppCompatActivity
     private boolean navigationMode = false;
     private boolean arMode = false;
     private TMapPoint destination = null;
+    private TMapMarkerItem oldMarker = null;
 
     private Drawable navIcon = null;
 
@@ -236,7 +237,8 @@ public class MainActivity extends AppCompatActivity
         btnCurrent.setOnClickListener(btnCurrentClicked);
 
         btnFlag = (FloatingActionButton)findViewById(R.id.btnFlag);
-        btnFlag.setOnClickListener(btnFlagClicked);
+//        btnFlag.setOnClickListener(btnFlagClicked);
+        btnFlag.setOnTouchListener(btnFlagTouched);
 
         //Drawer Layout
         drawerLayout = (DrawerLayout)findViewById(R.id.activity_main);
@@ -497,7 +499,7 @@ public class MainActivity extends AppCompatActivity
                 if (destination == null) {
                     Toast.makeText(this, "먼저 도착지를 선택하세요.", Toast.LENGTH_SHORT).show();
                     setNavigationMode(false);
-                    setSelectionMode(true);
+                    //setSelectionMode(true);
                     return;
                 }
 
@@ -505,6 +507,7 @@ public class MainActivity extends AppCompatActivity
 
                 Location currentLocation = gpsManager.getCurrentLocation();
                 TMapPoint startPoint = new TMapPoint(currentLocation.getLatitude(), currentLocation.getLongitude());
+
 
                 mapData.findPathDataWithType(TMapData.TMapPathType.PEDESTRIAN_PATH, startPoint, destination, new TMapData.FindPathDataListenerCallback() {
                     @Override
@@ -517,6 +520,9 @@ public class MainActivity extends AppCompatActivity
                         markerIdList.clear();
 
                         int i = 0;
+
+                        mapView.removeAllMarkerItem();
+
                         // Add Markers on TMapView
                         for (TMapPoint p : linePoints) {
                             TMapMarkerItem markerItem = new TMapMarkerItem();
@@ -595,6 +601,11 @@ public class MainActivity extends AppCompatActivity
             mapView.removeTMapPath();
             mapView.removeAllMarkerItem();
 
+            // if old marker exists, add marker on mapView
+            if (oldMarker != null) {
+                mapView.addMarkerItem("도착지", oldMarker);
+            }
+
             // nav service timer stop
             try {
                 timer.cancel();
@@ -653,6 +664,7 @@ public class MainActivity extends AppCompatActivity
         TMapMarkerItem marker = new TMapMarkerItem();
         marker.setID("도착지");
         marker.setTMapPoint(destination);
+        oldMarker = marker;
 
         mapView.addMarkerItem("도착지", marker);
         Log.d("Info::", "도착지 설정 완료");
@@ -804,6 +816,100 @@ public class MainActivity extends AppCompatActivity
             } catch(Exception ex) {
                 Log.d("Exception:", ex.getMessage());
             }
+        }
+    };
+
+    private void setVisibilityForAllButtons(int visibility) {
+        btnCurrent.setVisibility(visibility);
+        btnPath.setVisibility(visibility);
+        btnDir.setVisibility(visibility);
+        btnFlag.setVisibility(visibility);
+    }
+
+    private View.OnTouchListener btnFlagTouched = new View.OnTouchListener() {
+        ImageView tempImage;
+        long downTime, upTime;
+
+        float dx = 0, dy = 0;
+
+        @Override
+        public boolean onTouch(View v, MotionEvent event) {
+//            final int x = (int)event.getRawX();
+//            final int y = (int)event.getRawY();
+
+
+            switch(event.getAction() & MotionEvent.ACTION_MASK) {
+                case ACTION_DOWN: {
+                    downTime = System.currentTimeMillis();
+                    tempImage = new ImageView(MainActivity.this);
+                    tempImage.setImageResource(R.drawable.ic_button_flag_red);
+                    tempImage.setVisibility(View.INVISIBLE);
+
+                    setVisibilityForAllButtons(View.INVISIBLE);
+                    frameMap.addView(tempImage);
+
+                    dx = v.getX() - event.getRawX();
+                    dy = v.getY() - event.getRawY();
+
+                    FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) tempImage.getLayoutParams();
+//                    params.leftMargin = x;
+//                    params.topMargin = y - 250;
+                    params.width = 128;
+                    params.height = 128;
+                    tempImage.setLayoutParams(params);
+
+                    tempImage.setX(v.getX());
+                    tempImage.setY(v.getY());
+
+                    tempImage.setVisibility(View.VISIBLE);
+
+                    break;
+                }
+                case ACTION_UP: {
+                    upTime = System.currentTimeMillis();
+
+                    final int x = (int)tempImage.getX() + 64;
+                    final int y = (int)tempImage.getY() + 128;
+
+                    frameMap.removeView(tempImage);
+                    setVisibilityForAllButtons(View.VISIBLE);
+
+                    if (upTime - downTime < 100) {
+                        break;
+                    }
+
+                    (new AlertDialog.Builder(MainActivity.this))
+                            .setTitle("안내")
+                            .setMessage("도착지로 설정하시겠습니까?")
+                            .setPositiveButton("예", new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialogInterface, int i) {
+                                    // set selected point as destination and mark it on TMap View
+                                    setDestination(mapView.getTMapPointFromScreenPoint(x,  y));
+
+                                }
+                            }).setNegativeButton("아니오", null).show();
+
+                    break;
+                }
+                case ACTION_MOVE: {
+                    if (tempImage != null) {
+//                        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams)tempImage.getLayoutParams();
+//                        params.leftMargin = (int)event.getRawX();
+//                        params.topMargin = (int)event.getRawY();
+//                        tempImage.setLayoutParams(params);
+                        tempImage.animate()
+                                .x(event.getRawX() + dx)
+                                .y(event.getRawY() + dy)
+                                .setDuration(0)
+                                .start();
+                    }
+                    break;
+                }
+                default:
+                    return false;
+            }
+            return true;
         }
     };
 

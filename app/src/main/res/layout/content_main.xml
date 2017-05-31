@@ -51,18 +51,18 @@
             android:id="@+id/btnFlag"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_alignParentEnd="true"
-            android:layout_alignParentBottom="true"
-            android:layout_margin="16dp"
-            app:srcCompat="@drawable/ic_button_flag"
+            android:layout_alignBottom="@id/btnPath"
+            android:layout_toRightOf="@id/btnPath"
+            android:src="@drawable/ic_button_flag_red"
             />
 
         <android.support.design.widget.FloatingActionButton
             android:id="@+id/btnCurrent"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_alignLeft="@+id/btnFlag"
-            android:layout_above="@+id/btnFlag"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentBottom="true"
+            android:layout_margin="16dp"
             app:srcCompat="@drawable/ic_button_my_location"
             />
 
@@ -71,7 +71,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_alignParentTop="true"
-            android:layout_alignParentRight="true"
+            android:layout_alignParentEnd="true"
             android:maxWidth="24dp"
             android:maxHeight="24dp"
             android:layout_margin="16dp"
@@ -86,6 +86,7 @@
         android:layout_height="match_parent"
         android:layout_alignParentBottom="true"
         android:visibility="invisible">
+
         <me.blog.cjh7163.tmaptest.CameraSurface
             android:layout_width="match_parent"
             android:layout_height="match_parent"
