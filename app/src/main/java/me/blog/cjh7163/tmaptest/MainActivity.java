@@ -12,7 +12,6 @@ import android.location.LocationManager;
 import android.net.Uri;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.NavigationView;
 import android.support.v4.view.GravityCompat;
@@ -508,7 +507,6 @@ public class MainActivity extends AppCompatActivity
                 Location currentLocation = gpsManager.getCurrentLocation();
                 TMapPoint startPoint = new TMapPoint(currentLocation.getLatitude(), currentLocation.getLongitude());
 
-
                 mapData.findPathDataWithType(TMapData.TMapPathType.PEDESTRIAN_PATH, startPoint, destination, new TMapData.FindPathDataListenerCallback() {
                     @Override
                     public void onFindPathData(TMapPolyLine tMapPolyLine) {
@@ -671,7 +669,7 @@ public class MainActivity extends AppCompatActivity
     }
 
     @Override
-    public boolean onNavigationItemSelected(@NonNull MenuItem item) {
+    public boolean onNavigationItemSelected(MenuItem item) {
         int id = item.getItemId();
         try {
             switch (id) {
@@ -724,17 +722,7 @@ public class MainActivity extends AppCompatActivity
                     setDestination(mapPoint);
                     mapView.setCenterPoint(longitude, latitude);
 
-                    // 기록을 파일에 저장
-                    BufferedWriter bw;
-                    try {
-                        bw = new BufferedWriter(new FileWriter(new File(getFilesDir(), "history.txt"), true));
-                        bw.append(String.format("%s %f %f", name, longitude, latitude));
-                        bw.newLine();
-                        bw.close();
-                    } catch(Exception ex) {
-                        Log.d("FileWriteException:", ex.getMessage());
-                    }
-
+                    appendToHistoryFile(name, latitude, longitude);
                     break;
                 }
                 case REQUEST_HISTORY: {
@@ -760,6 +748,18 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
+    private void appendToHistoryFile(String name, double latitude, double longitude) {
+        // 기록을 파일에 저장
+        BufferedWriter bw;
+        try {
+            bw = new BufferedWriter(new FileWriter(new File(getFilesDir(), "history.txt"), true));
+            bw.append(String.format("%s %f %f", name, longitude, latitude));
+            bw.newLine();
+            bw.close();
+        } catch(Exception ex) {
+            Log.d("FileWriteException:", ex.getMessage());
+        }
+    }
 
     ////////////////////////////////////////////////////////////////
     //
