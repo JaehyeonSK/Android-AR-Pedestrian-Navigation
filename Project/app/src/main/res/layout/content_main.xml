@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/content_main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:layout_behavior="@string/appbar_scrolling_view_behavior"
+    tools:context="me.blog.cjh7163.tmaptest.MainActivity"
+    tools:showIn="@layout/app_bar_main">
+
+    <RelativeLayout
+        android:id="@+id/relativeContent"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <FrameLayout
+            android:id="@+id/frameMap"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clickable="false"
+            />
+        <ImageView
+            android:id="@+id/splitter"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:src="@drawable/splitter"
+            android:visibility="gone"
+            android:layout_below="@id/frameMap"
+            android:layout_marginTop="-5px"
+            />
+
+        <!--<Button-->
+            <!--android:id="@+id/btnPath"-->
+            <!--android:text="길찾기"-->
+            <!--android:layout_width="wrap_content"-->
+            <!--android:layout_height="wrap_content"-->
+            <!--android:layout_alignParentStart="true"-->
+            <!--android:padding="-3dp"-->
+            <!--android:layout_margin="5dp"-->
+            <!--/>-->
+
+        <android.support.design.widget.FloatingActionButton
+            android:id="@+id/btnPath"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:layout_margin="16dp"
+            app:srcCompat="@drawable/ic_stat_name"/>
+
+        <android.support.design.widget.FloatingActionButton
+            android:id="@+id/btnFlag"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignBottom="@id/btnPath"
+            android:layout_toRightOf="@id/btnPath"
+            android:src="@drawable/ic_button_flag_red"
+            />
+
+        <android.support.design.widget.FloatingActionButton
+            android:id="@+id/btnCurrent"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentBottom="true"
+            android:layout_margin="16dp"
+            app:srcCompat="@drawable/ic_button_my_location"
+            />
+
+        <android.support.design.widget.FloatingActionButton
+            android:id="@+id/direction"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentEnd="true"
+            android:maxWidth="24dp"
+            android:maxHeight="24dp"
+            android:layout_margin="16dp"
+            app:srcCompat="@drawable/dir_right"
+            />
+
+    </RelativeLayout>
+
+    <FrameLayout
+        android:id="@+id/arSurface"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_alignParentBottom="true"
+        android:visibility="invisible">
+
+        <me.blog.cjh7163.tmaptest.CameraSurface
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            />
+    </FrameLayout>
+
+
+
+    <!--<android.support.v7.widget.SwitchCompat-->
+        <!--android:id="@+id/swAR"-->
+        <!--android:layout_width="wrap_content"-->
+        <!--android:layout_height="wrap_content"-->
+        <!--android:layout_toLeftOf="@id/direction"-->
+        <!--android:layout_alignWithParentIfMissing="true"-->
+        <!--android:layout_alignParentTop="true"-->
+        <!--android:layout_marginTop="24dp"-->
+        <!--android:text="AR"-->
+        <!--android:visibility="invisible"-->
+        <!--/>-->
+</RelativeLayout>
