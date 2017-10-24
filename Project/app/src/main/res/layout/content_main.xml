@@ -93,6 +93,31 @@
             />
     </FrameLayout>
 
+    <!--
+        현재 이동상황 확인 버튼
+        뷰의 위에 존재 함
+     -->
+    <android.support.design.widget.FloatingActionButton
+        android:id="@+id/btnStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:layout_marginRight="80dp"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentTop="true"
+        android:visibility="invisible"
+        android:src="@drawable/info"
+        />
+
+    <me.blog.cjh7163.tmaptest.Views.PopupListView
+        android:id="@+id/lvStatus"
+        android:layout_width="match_parent"
+        android:layout_height="350dp"
+        android:layout_below="@id/btnStatus"
+        android:visibility="invisible"
+        app:listTitle="이동 현황"
+        />
+
 
 
     <!--<android.support.v7.widget.SwitchCompat-->

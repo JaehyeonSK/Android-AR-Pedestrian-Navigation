@@ -11,6 +11,7 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.net.Uri;
 import android.opengl.GLSurfaceView;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.NavigationView;
@@ -41,9 +42,17 @@ import com.skp.Tmap.TMapPoint;
 import com.skp.Tmap.TMapPolyLine;
 import com.skp.Tmap.TMapView;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -53,6 +62,9 @@ import me.blog.cjh7163.tmaptest.Settings.Preference;
 import me.blog.cjh7163.tmaptest.Settings.SettingsActivity;
 import me.blog.cjh7163.tmaptest.Utils.LocationUtils;
 import me.blog.cjh7163.tmaptest.Utils.ScreenUtils;
+import me.blog.cjh7163.tmaptest.Views.PopupListAdapater;
+import me.blog.cjh7163.tmaptest.Views.PopupListItem;
+import me.blog.cjh7163.tmaptest.Views.PopupListView;
 
 import static android.view.MotionEvent.ACTION_DOWN;
 import static android.view.MotionEvent.ACTION_MOVE;
@@ -85,6 +97,9 @@ public class MainActivity extends AppCompatActivity
     private FloatingActionButton btnCurrent;
     private FloatingActionButton btnFlag;
     private FloatingActionButton btnDir;
+    private FloatingActionButton btnStatus;
+
+    private PopupListView lvStatus;
 
     private Toolbar toolbar;
     private TextView tvToolbarTitle;
@@ -112,6 +127,9 @@ public class MainActivity extends AppCompatActivity
 
     // Marker
     private ArrayList<String> markerIdList = new ArrayList<>();
+
+    // PopupList Item List
+    private ArrayList<PopupListItem> popupListItems = new ArrayList<>();
 
     @Override
     @SuppressWarnings("deprecation")
@@ -239,6 +257,11 @@ public class MainActivity extends AppCompatActivity
 //        btnFlag.setOnClickListener(btnFlagClicked);
         btnFlag.setOnTouchListener(btnFlagTouched);
 
+        btnStatus = (FloatingActionButton)findViewById(R.id.btnStatus);
+        btnStatus.setOnClickListener(btnStatusClicked);
+
+        lvStatus = (PopupListView)findViewById(R.id.lvStatus);
+
         //Drawer Layout
         drawerLayout = (DrawerLayout)findViewById(R.id.activity_main);
         toolbar = (Toolbar)findViewById(R.id.toolbar);
@@ -267,7 +290,7 @@ public class MainActivity extends AppCompatActivity
                 if (arMode) {
                     toolbar.setNavigationIcon(null);
                     arSurface.setVisibility(View.VISIBLE);
-                    btnDir.setVisibility(View.GONE);
+                    //btnDir.setVisibility(View.GONE);
                     startAR();
                 } else {
                     toolbar.setNavigationIcon(navIcon);
@@ -303,11 +326,15 @@ public class MainActivity extends AppCompatActivity
 
             renderer = new GLClearRenderer();
 
+            // GL 서피스뷰 생성
             glSurfaceView = new GLSurfaceView(this);
             glSurfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 0);
+
             // set format as translucent
             glSurfaceView.getHolder().setFormat(PixelFormat.TRANSLUCENT);
             glSurfaceView.setRenderer(renderer);
+
+            // 화면 터치 후 드래그를 통한 화살표 이동 제어
             glSurfaceView.setOnTouchListener(new View.OnTouchListener() {
                 boolean touchDown = false;
                 float deltaX, deltaY;
@@ -351,12 +378,16 @@ public class MainActivity extends AppCompatActivity
                 }
             });
 
+            // 타이틀 변경
             toolbar.setTitle("증강현실 모드");
             tvToolbarTitle.setText("증강현실 모드");
 
             btnPath.setVisibility(Button.INVISIBLE);
+
+            // 레이아웃에 GL 서피스뷰 등록
             content.addView(glSurfaceView);
-            relativeContent.bringToFront();
+            //relativeContent.bringToFront();
+            lvStatus.bringToFront();
 
             glSurfaceView.setZOrderMediaOverlay(true);
         } catch(Exception ex) {
@@ -421,6 +452,19 @@ public class MainActivity extends AppCompatActivity
             nearestLocation.setLatitude(nearestPoint.getLatitude());
 
             double distance = LocationUtils.distanceBetween(currentLocation, nearestLocation);
+
+            Location temp = new Location("");
+            temp.setLatitude(destination.getLatitude());
+            temp.setLongitude(destination.getLongitude());
+            double remDist = LocationUtils.distanceBetween(currentLocation, temp);
+            final int currDist = (int)(lvStatus.getMax() - remDist);
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    lvStatus.updateDistance(currDist);
+                }
+            });
+
 //            Log.d("distance:", "" + distance);
             if(distance < distThreshold) {
                 int nearestIndex = pathManager.getNearestIndex();
@@ -444,7 +488,7 @@ public class MainActivity extends AppCompatActivity
                     return;
                 }
             } else {
-                // out of 3.0 meters
+                // out of 20.0 meters
             }
 
 //            double direction = nearestVector.getDirection();
@@ -505,41 +549,124 @@ public class MainActivity extends AppCompatActivity
                 TMapData mapData = new TMapData();
 
                 Location currentLocation = gpsManager.getCurrentLocation();
-                TMapPoint startPoint = new TMapPoint(currentLocation.getLatitude(), currentLocation.getLongitude());
+                final TMapPoint startPoint = new TMapPoint(currentLocation.getLatitude(), currentLocation.getLongitude());
 
-                mapData.findPathDataWithType(TMapData.TMapPathType.PEDESTRIAN_PATH, startPoint, destination, new TMapData.FindPathDataListenerCallback() {
+                String BASE = "https://apis.skplanetx.com/tmap/routes/pedestrian?version=1&format=json&appKey=%s&startX=%s&startY=%s&endX=%s&endY=%s&startName=출발점&endName=도착점&reqCoordType=WGS84GEO&resCoordType=WGS84GEO";
+//                URL url = new URL(String.format(BASE, getString(R.string.tmap_api_key), "14129076.637157721", "4517000.1674596295", "14129150.847711671", "4516442.460094549"));
+                URL url = new URL(String.format(BASE, getString(R.string.tmap_api_key), startPoint.getLongitude(), startPoint.getLatitude(), destination.getLongitude(), destination.getLatitude()));
+
+                Location temp = new Location("");
+                temp.setLatitude(destination.getLatitude());
+                temp.setLongitude(destination.getLongitude());
+                lvStatus.setMax((int)currentLocation.distanceTo(temp));
+
+                // startX, startY, endX, endY, startName, endName
+                AsyncTask<URL, Void, String> findPathTask = new AsyncTask<URL, Void, String>() {
                     @Override
-                    public void onFindPathData(TMapPolyLine tMapPolyLine) {
-                        // add Path from current to destination on TMap View
-                        mapView.addTMapPath(tMapPolyLine);
+                    protected String doInBackground(URL... urls) {
+                        HttpURLConnection connection = null;
+                        InputStream is = null;
+                        StringBuilder sb = new StringBuilder();
 
-                        // Line Point ArrayList
-                        ArrayList<TMapPoint> linePoints = tMapPolyLine.getLinePoint();
-                        markerIdList.clear();
+                        try {
+                            connection = (HttpURLConnection) urls[0].openConnection();
+                            connection.setDoInput(true);
 
-                        int i = 0;
+                            is = connection.getInputStream();
+                            BufferedReader br = new BufferedReader(new InputStreamReader(is));
 
-                        mapView.removeAllMarkerItem();
+                            String line = "";
+                            while ((line = br.readLine()) != null) {
+                                sb.append(line);
+                            }
 
-                        // Add Markers on TMapView
-                        for (TMapPoint p : linePoints) {
-                            TMapMarkerItem markerItem = new TMapMarkerItem();
-                            markerItem.setTMapPoint(p);
-
-                            String id = "l" + (i++);
-                            markerItem.setID(id);
-                            mapView.addMarkerItem(id, markerItem);
-                            markerIdList.add(id);
+                            br.close();
+                            connection.disconnect();
+                        } catch(Exception ex) {
+                            Log.d("EXC:", ex.getMessage());
                         }
 
-                        // pass the path to Path Manager
-                        pathManager.setPolyLine(tMapPolyLine);
+                        return sb.toString();
                     }
-                });
+
+                    @Override
+                    protected void onPostExecute(String jsonString) {
+                        try {
+                            JSONObject object = new JSONObject(jsonString);
+                            Log.d("result:", object.toString());
+
+                            final TMapPolyLine polyLine = parseJSON(object);
+
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    ArrayList<TMapPoint> linePoints = polyLine.getLinePoint();
+                                    markerIdList.clear();
+
+                                    int i = 0;
+                                    mapView.removeAllMarkerItem();
+
+                                    for (TMapPoint p : linePoints) {
+                                        TMapMarkerItem markerItem = new TMapMarkerItem();
+                                        markerItem.setTMapPoint(p);
+
+                                        String id = "l" + (i++);
+                                        markerItem.setID(id);
+                                        mapView.addMarkerItem(id, markerItem);
+                                        markerIdList.add(id);
+                                    }
+
+                                    mapView.addTMapPath(polyLine);
+
+                                    PopupListAdapater adapter = new PopupListAdapater(MainActivity.this, R.layout.popup_list_item, popupListItems);
+                                    lvStatus.setAdapter(adapter);
+
+                                    // pass the path to PathManager
+                                    pathManager.setPolyLine(polyLine);
+                                }
+                            });
+                        } catch(Exception ex) {
+                            Log.d("EXC:", ex.getMessage());
+                        }
+                    }
+                }.execute(url);
+
+                //https://apis.skplanetx.com/tmap/routes/pedestrian?version={version}&callback={callback}
+
+//                mapData.findPathDataWithType(TMapData.TMapPathType.PEDESTRIAN_PATH, startPoint, destination, new TMapData.FindPathDataListenerCallback() {
+//                    @Override
+//                    public void onFindPathData(TMapPolyLine tMapPolyLine) {
+//                        // add Path from current to destination on TMap View
+//                        mapView.addTMapPath(tMapPolyLine);
+//
+//                        // Line Point ArrayList
+//                        ArrayList<TMapPoint> linePoints = tMapPolyLine.getLinePoint();
+//                        markerIdList.clear();
+//
+//                        int i = 0;
+//
+//                        mapView.removeAllMarkerItem();
+//
+//                        // Add Markers on TMapView
+//                        for (TMapPoint p : linePoints) {
+//                            TMapMarkerItem markerItem = new TMapMarkerItem();
+//                            markerItem.setTMapPoint(p);
+//
+//                            String id = "l" + (i++);
+//                            markerItem.setID(id);
+//                            mapView.addMarkerItem(id, markerItem);
+//                            markerIdList.add(id);
+//                        }
+//
+//                        // pass the path to Path Manager
+//                        pathManager.setPolyLine(tMapPolyLine);
+//                    }
+//                });
 
                 // initialize navigation mode
                 btnFlag.setVisibility(View.INVISIBLE);
                 btnCurrent.setVisibility(View.INVISIBLE);
+                btnStatus.setVisibility(View.VISIBLE);
                 setSelectionMode(false);
 
                 // disable User Scroll & Zoom
@@ -575,7 +702,7 @@ public class MainActivity extends AppCompatActivity
                         updateDirection();
                     }
                 };
-                timer.schedule(timerTask, 200, 1);
+                timer.schedule(timerTask, 300, 1);
 
             } catch (Exception ex) {
                 Log.d("Exception:", ex.getMessage());
@@ -587,6 +714,8 @@ public class MainActivity extends AppCompatActivity
         } else {
             btnFlag.setVisibility(View.VISIBLE);
             btnCurrent.setVisibility(View.VISIBLE);
+            btnStatus.setVisibility(View.INVISIBLE);
+            lvStatus.setVisibility(View.INVISIBLE);
 
             // enable User Scroll & Zoom
             mapView.setUserScrollZoomEnable(false);
@@ -614,6 +743,79 @@ public class MainActivity extends AppCompatActivity
 
             swAR.setVisibility(View.INVISIBLE);
         }
+    }
+
+    private TMapPolyLine parseJSON(JSONObject root) {
+        TMapPolyLine polyLine = new TMapPolyLine();
+        popupListItems.clear();
+
+        try {
+            JSONArray features = root.getJSONArray("features");
+
+            for (int i=0; i<features.length(); ++i) {
+                JSONObject obj = features.getJSONObject(i);
+                String type = obj.getJSONObject("geometry").getString("type");
+
+                JSONArray coord = obj.getJSONObject("geometry").getJSONArray("coordinates");
+                JSONObject props = obj.getJSONObject("properties");
+
+                if (type.equals("Point")) {
+                    // Point인 경우
+                    TMapPoint[] points = new TMapPoint[1];
+                    points[0] = new TMapPoint(coord.getDouble(1), coord.getDouble(0));
+                    polyLine.addLinePoint(points[0]);
+
+                    String name, description;
+                    name = props.getString("name");
+                    description = props.getString("description");
+
+                    if (name.equals("")) {
+                        name = description;
+                        description = "";
+                    }
+
+                    popupListItems.add(new PopupListItem(name, description, false, points));
+                } else if (type.equals("LineString")) {
+                    // Line String인 경우
+                    TMapPoint[] points = new TMapPoint[coord.length()];
+                    for (int k=0; k<coord.length(); ++k) {
+                        JSONArray innerCoord = coord.getJSONArray(k);
+
+                        points[k] = new TMapPoint(innerCoord.getDouble(1), innerCoord.getDouble(0));
+                        polyLine.addLinePoint(points[k]);
+                    }
+
+                    String name, description;
+                    name = props.getString("name");
+                    description = props.getString("description");
+
+                    if (name.equals("")) {
+                        name = description;
+                        description = "";
+                    }
+
+                    popupListItems.add(new PopupListItem(name, description, false, points));
+                }
+
+                // 의미없는 정보 제거
+                if (popupListItems.get(popupListItems.size()-1).mainText.startsWith(","))
+                    popupListItems.remove(popupListItems.size()-1);
+
+            }
+        } catch(Exception ex) {
+            Log.d("EXC:", "an error occur while parsing json / " + ex.toString());
+        }
+
+        for (int i=0; i<popupListItems.size(); ++i) {
+            Log.d("popup] main: ", popupListItems.get(i).mainText);
+            Log.d("popup] sub: ", popupListItems.get(i).subText);
+            for (int k=0; k<popupListItems.get(i).points.length; ++k) {
+                TMapPoint p = popupListItems.get(i).points[k];
+                Log.d("popup] point[" + k + "]: ", p.getLatitude() + ", " + p.getLongitude());
+            }
+        }
+
+        return polyLine;
     }
 
     private void setSelectionMode(boolean isSelectionMode) {
@@ -825,6 +1027,18 @@ public class MainActivity extends AppCompatActivity
         btnDir.setVisibility(visibility);
         btnFlag.setVisibility(visibility);
     }
+
+    private View.OnClickListener btnStatusClicked = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            if (lvStatus.getVisibility() == View.INVISIBLE) {
+                lvStatus.setVisibility(View.VISIBLE);
+                lvStatus.bringToFront();
+            } else {
+                lvStatus.setVisibility(View.INVISIBLE);
+            }
+        }
+    };
 
     private View.OnTouchListener btnFlagTouched = new View.OnTouchListener() {
         ImageView tempImage;

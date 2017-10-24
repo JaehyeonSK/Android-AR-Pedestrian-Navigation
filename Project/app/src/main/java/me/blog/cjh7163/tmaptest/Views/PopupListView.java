@@ -47,6 +47,10 @@ public class PopupListView extends LinearLayout {
     }
 
     public void updateDistance(int distance) {
+        if (distance < currentDistance) {
+            return;
+        }
+
         currentDistance = distance;
         setDistance();
     }
@@ -86,6 +90,17 @@ public class PopupListView extends LinearLayout {
         pgDistance.setProgress(currentDistance);
 
         tvStatus.setText(String.format(getContext().getString(R.string.dist_status), currentDistance, maxDistance));
+    }
+
+    public void setMax(int maxDistance) {
+        this.maxDistance = maxDistance;
+        this.currentDistance = 0;
+
+        setDistance();
+    }
+
+    public int getMax() {
+        return this.maxDistance;
     }
 
 }
