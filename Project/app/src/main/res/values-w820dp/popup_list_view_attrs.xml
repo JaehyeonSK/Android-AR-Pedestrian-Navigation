@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="PopupListView">
+        <attr name="listTitle" format="string"/>
+        <attr name="distance" format="integer"/>
+        <attr name="maxDistance" format="integer"/>
+    </declare-styleable>
+</resources>
